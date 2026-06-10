@@ -17,6 +17,13 @@ func Save(path string, cfg Config) error {
 	}
 	defer func() { _ = file.Close() }()
 
+	writePair := func(key, value string) error {
+		if value == "" {
+			return nil
+		}
+		_, err := fmt.Fprintf(file, "%s = %q\n", key, value)
+		return err
+	}
 	for i, profile := range cfg.Profiles {
 		if i > 0 {
 			if _, err := fmt.Fprintln(file); err != nil {
@@ -25,13 +32,6 @@ func Save(path string, cfg Config) error {
 		}
 		if _, err := fmt.Fprintf(file, "[%s]\n", profile.Name); err != nil {
 			return fmt.Errorf("write config: %w", err)
-		}
-		writePair := func(key, value string) error {
-			if value == "" {
-				return nil
-			}
-			_, err := fmt.Fprintf(file, "%s = %q\n", key, value)
-			return err
 		}
 		if err := writePair("gh_user", profile.GitHubUser); err != nil {
 			return fmt.Errorf("write config: %w", err)

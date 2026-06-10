@@ -37,13 +37,13 @@ func New(run runner.Runner) GH {
 }
 
 func (g GH) ActiveUser() (User, error) {
-	output, err := g.runner.Output("gh", "api", "user")
+	data, err := g.runner.OutputBytes("gh", "api", "user")
 	if err != nil {
 		return User{}, err
 	}
 
 	var user User
-	if err := json.Unmarshal([]byte(output), &user); err != nil {
+	if err := json.Unmarshal(data, &user); err != nil {
 		return User{}, fmt.Errorf("parse gh user: %w", err)
 	}
 	if user.Login == "" {
@@ -59,19 +59,19 @@ func (g GH) ActiveUser() (User, error) {
 }
 
 func (g GH) AuthAccounts(hostname string) ([]AuthAccount, error) {
-	output, err := g.runner.Output("gh", "auth", "status", "--hostname", hostname, "--json", "hosts")
+	data, err := g.runner.OutputBytes("gh", "auth", "status", "--hostname", hostname, "--json", "hosts")
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseAuthAccounts(hostname, output)
+	return ParseAuthAccounts(hostname, data)
 }
 
-func ParseAuthAccounts(hostname string, output string) ([]AuthAccount, error) {
+func ParseAuthAccounts(hostname string, data []byte) ([]AuthAccount, error) {
 	var status struct {
 		Hosts map[string][]AuthAccount `json:"hosts"`
 	}
-	if err := json.Unmarshal([]byte(output), &status); err != nil {
+	if err := json.Unmarshal(data, &status); err != nil {
 		return nil, fmt.Errorf("parse gh auth status: %w", err)
 	}
 
@@ -88,13 +88,13 @@ func (g GH) SwitchUser(hostname string, login string) error {
 }
 
 func (g GH) PrimaryEmail() (string, error) {
-	output, err := g.runner.Output("gh", "api", "user/emails")
+	data, err := g.runner.OutputBytes("gh", "api", "user/emails")
 	if err != nil {
 		return "", err
 	}
 
 	var emails []Email
-	if err := json.Unmarshal([]byte(output), &emails); err != nil {
+	if err := json.Unmarshal(data, &emails); err != nil {
 		return "", fmt.Errorf("parse gh emails: %w", err)
 	}
 

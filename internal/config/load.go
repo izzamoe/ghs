@@ -38,7 +38,7 @@ func Load(path string) (Config, error) {
 		if !ok {
 			return Config{}, fmt.Errorf("invalid config line: %s", line)
 		}
-		setProfileValue(current, strings.TrimSpace(key), strings.Trim(strings.TrimSpace(value), `"`))
+		setProfileValue(current, strings.TrimSpace(key), strings.Trim(value, " \t\r\n\""))
 	}
 	if err := scanner.Err(); err != nil {
 		return Config{}, fmt.Errorf("scan config: %w", err)
