@@ -27,8 +27,8 @@ func (Runner) Run(name string, args ...string) error {
 	return nil
 }
 
-func (Runner) Output(name string, args ...string) (string, error) {
-	out, err := Runner{}.OutputBytes(name, args...)
+func (r Runner) Output(name string, args ...string) (string, error) {
+	out, err := r.OutputBytes(name, args...)
 	if err != nil {
 		return "", err
 	}

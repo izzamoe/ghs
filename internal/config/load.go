@@ -1,29 +1,29 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
 )
 
 func Load(path string) (Config, error) {
-	file, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("open config: %w", err)
 	}
-	defer func() { _ = file.Close() }()
 
+	// string(data) is one alloc; all substrings derived from it share the
+	// same backing memory — no per-line or per-field copies needed.
+	content := string(data)
 	var cfg Config
 	var current *Profile
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
+	for line := range strings.SplitSeq(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line[0] == '#' {
 			continue
 		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "["), "]"))
+		if line[0] == '[' && line[len(line)-1] == ']' {
+			name := strings.TrimSpace(line[1 : len(line)-1])
 			if name == "" {
 				return Config{}, fmt.Errorf("empty profile name")
 			}
@@ -39,9 +39,6 @@ func Load(path string) (Config, error) {
 			return Config{}, fmt.Errorf("invalid config line: %s", line)
 		}
 		setProfileValue(current, strings.TrimSpace(key), strings.Trim(value, " \t\r\n\""))
-	}
-	if err := scanner.Err(); err != nil {
-		return Config{}, fmt.Errorf("scan config: %w", err)
 	}
 	return cfg, nil
 }
