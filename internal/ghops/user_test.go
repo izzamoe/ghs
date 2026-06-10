@@ -5,7 +5,7 @@ import "testing"
 func TestParseAuthAccounts(t *testing.T) {
 	t.Parallel()
 
-	accounts, err := ParseAuthAccounts("github.com", `{"hosts":{"github.com":[{"state":"success","active":true,"host":"github.com","login":"zamyb"},{"state":"success","active":false,"host":"github.com","login":"izzamoe"}]}}`)
+	accounts, err := ParseAuthAccounts("github.com", []byte(`{"hosts":{"github.com":[{"state":"success","active":true,"host":"github.com","login":"zamyb"},{"state":"success","active":false,"host":"github.com","login":"izzamoe"}]}}`))
 	if err != nil {
 		t.Fatalf("ParseAuthAccounts() error = %v", err)
 	}
