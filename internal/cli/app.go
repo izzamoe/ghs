@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"runtime/debug"
 	"slices"
 
 	"github.com/izzamoe/ghs/internal/config"
@@ -47,6 +48,8 @@ func (a App) Run(args []string) error {
 		return a.fixRemote(args[1:])
 	case "status":
 		return a.status()
+	case "version", "--version", "-v":
+		return a.printVersion()
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -66,10 +69,20 @@ Commands:
   ghs init-ssh <profile> [--upload]
   ghs fix-remote <profile>
   ghs status
+  ghs version
 
 Config: ~/.config/ghs/config.conf
 Root is not needed and should not be used.`)
 
+	return err
+}
+
+func (a App) printVersion() error {
+	version := "devel"
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		version = info.Main.Version
+	}
+	_, err := fmt.Fprintln(a.out, "ghs", version)
 	return err
 }
 
