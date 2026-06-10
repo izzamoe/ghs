@@ -30,6 +30,11 @@ func TestRewriteGitHubURL(t *testing.T) {
 			url:  "git@github-work:owner/repo.git",
 			want: "git@github-work:owner/repo.git",
 		},
+		{
+			name: "aliased from different profile",
+			url:  "git@github-other:owner/repo.git",
+			want: "git@github-work:owner/repo.git",
+		},
 	}
 
 	for _, tt := range tests {

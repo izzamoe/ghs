@@ -83,6 +83,12 @@ func RewriteGitHubURL(url string, alias string) (string, error) {
 	if strings.Contains(url, "@"+alias+":") || strings.Contains(url, "@"+alias+"/") {
 		return url, nil
 	}
+	// handle git@<other-alias>:<path> — already aliased but from a different profile
+	if strings.HasPrefix(url, "git@") {
+		if _, path, ok := strings.Cut(url[4:], ":"); ok && path != "" {
+			return "git@" + alias + ":" + path, nil
+		}
+	}
 	return "", fmt.Errorf("unsupported github remote url: %s", url)
 }
 
