@@ -95,6 +95,8 @@ ghs init-ssh <profile>                # generate SSH key if needed, write ~/.ssh
 ghs init-ssh <profile> --upload       # also upload SSH public key to GitHub
 ghs fix-remote <profile>              # rewrite origin to git@<ssh-alias>:owner/repo.git
 ghs status                            # show active gh account, git identity, and origin
+ghs version                           # print installed version
+ghs update                            # self-update to the latest release via go install
 ```
 
 ### Notes
@@ -102,5 +104,7 @@ ghs status                            # show active gh account, git identity, an
 `ghs import-all` reads `gh auth status --hostname github.com --json hosts`, temporarily switches through each healthy account to read user details, saves one profile per login, then restores the previously active account.
 
 `ghs clone <profile> <owner/repo>` switches `gh` to the profile account, ensures local SSH key/config exists, clones through the profile SSH alias, and sets git identity locally inside the cloned repo when the profile has an email.
+
+`ghs update` runs `go install github.com/izzamoe/ghs/cmd/ghs@latest` and reports the version change. It requires `ghs` to have been installed via `go install` — local builds (`ghs version` prints `devel`) are not supported.
 
 Do not run `ghs` with `sudo` — root would write to `/root/.ssh` and `/root/.gitconfig`.
