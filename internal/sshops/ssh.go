@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/izzamoe/ghs/internal/config"
@@ -85,9 +84,14 @@ func (s SSH) UploadKey(profile config.Profile) error {
 
 func hasHostBlock(content string, alias string) bool {
 	for line := range strings.SplitSeq(content, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 2 && strings.EqualFold(fields[0], "Host") && slices.Contains(fields[1:], alias) {
-			return true
+		line = strings.TrimSpace(line)
+		if len(line) < 6 || !strings.EqualFold(line[:5], "Host ") {
+			continue
+		}
+		for word := range strings.FieldsSeq(line[5:]) {
+			if word == alias {
+				return true
+			}
 		}
 	}
 	return false
