@@ -61,7 +61,7 @@ func (s SSH) EnsureConfig(profile config.Profile) error {
 		return nil
 	}
 
-	block := fmt.Sprintf("\nHost %s\n  HostName github.com\n  User git\n  IdentityFile %s\n  IdentitiesOnly yes\n", profile.SSHHostAlias, keyPath)
+	block := fmt.Sprintf("\nHost %s\n  HostName github.com\n  User git\n  IdentityFile %s\n  IdentitiesOnly yes\n", profile.SSHHostAlias, filepath.ToSlash(keyPath))
 	file, err := os.OpenFile(sshConfigPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fmt.Errorf("open ssh config: %w", err)
