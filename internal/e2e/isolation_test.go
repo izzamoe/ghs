@@ -128,6 +128,7 @@ func TestHarness_NothingWrittenOutsideSandbox(t *testing.T) {
 	steps := [][]string{
 		{"add-profile", "work", "--gh-user", "zamyb-work", "--git-name", "Izzam", "--git-email", "work@example.com", "--ssh-alias", "github-work", "--ssh-key", "~/.ssh/id_ed25519_work"},
 		{"init-ssh", "work"},
+		{"workspace", "work", "~/Documents/work"},
 		{"list"},
 		{"status"},
 	}

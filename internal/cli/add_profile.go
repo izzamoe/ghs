@@ -2,6 +2,7 @@ package cli
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,11 +29,13 @@ func (a App) addProfile(pos []string, flags map[string]string) error {
 		return err
 	}
 
+	profile.Workspace = config.NormalizeWorkspace(flags["workspace"])
+
 	path, cfg, err := a.loadConfig()
 	if err != nil {
 		return err
 	}
-	if err := cfg.CheckUnique(profile, cfg.Index(profile.Name)); err != nil {
+	if err := checkProfileChange(cfg, profile); err != nil {
 		return err
 	}
 	return a.saveProfile(path, cfg, profile)
@@ -58,10 +61,29 @@ func (a App) addFromGH(pos []string, flags map[string]string) error {
 	if err := validateGHProfile(profile, flags); err != nil {
 		return err
 	}
-	if err := cfg.CheckUnique(profile, cfg.Index(profile.Name)); err != nil {
+	profile.Workspace = config.NormalizeWorkspace(profile.Workspace)
+	if profile.Workspace != "" && profile.GitEmail == "" {
+		return errors.New("--workspace needs a git email and gh returned none; pass --git-email")
+	}
+	if err := checkProfileChange(cfg, profile); err != nil {
 		return err
 	}
 	return a.saveProfile(path, cfg, profile)
+}
+
+// checkProfileChange rejects collisions with other profiles and a changed
+// workspace on an already-linked profile (which would orphan its link).
+func checkProfileChange(cfg config.Config, profile config.Profile) error {
+	idx := cfg.Index(profile.Name)
+	if err := cfg.CheckUnique(profile, idx); err != nil {
+		return err
+	}
+	if idx >= 0 && profile.Workspace != "" {
+		if old := cfg.Profiles[idx].Workspace; old != "" && !strings.EqualFold(config.NormalizeWorkspace(old), profile.Workspace) {
+			return fmt.Errorf("profile %q is already linked to %s; run: ghs workspace %s --unlink first", profile.Name, old, profile.Name)
+		}
+	}
+	return nil
 }
 
 func (a App) importAll(flags map[string]string) error {
@@ -123,10 +145,24 @@ func (a App) importAll(flags map[string]string) error {
 		return restoreActive(gh, hostname, activeLogin, err)
 	}
 
-	if err := restoreActive(gh, hostname, activeLogin, nil); err != nil {
-		return fmt.Errorf("imported %d profiles, but %w", len(profiles), err)
+	restoreErr := restoreActive(gh, hostname, activeLogin, nil)
+	if restoreErr != nil {
+		restoreErr = fmt.Errorf("imported %d profiles, but %w", len(profiles), restoreErr)
+	} else if err := a.printf("imported %d profiles from gh host %q", len(profiles), hostname); err != nil {
+		return err
 	}
-	return a.printf("imported %d profiles from gh host %q", len(profiles), hostname)
+	for _, p := range profiles {
+		line, err := refreshIdentityFile(path, merged.Profiles[merged.Index(p.Name)])
+		if err != nil {
+			return errors.Join(restoreErr, err)
+		}
+		if line != "" {
+			if err := a.printf("%s", line); err != nil {
+				return err
+			}
+		}
+	}
+	return restoreErr
 }
 
 // validateFlagValues validates the profile name (when non-empty) and every
@@ -188,12 +224,30 @@ func validateGHProfile(p config.Profile, flags map[string]string) error {
 }
 
 // saveProfile merges profile into the loaded cfg and saves it atomically.
+// When the profile names a workspace it is then linked; a link failure is
+// reported with the command that completes it, because the saved profile
+// is correct and linking is idempotent. An existing identity file of a
+// linked profile is refreshed (FR-060).
 func (a App) saveProfile(path string, cfg config.Config, profile config.Profile) error {
 	mergeProfiles(&cfg, []config.Profile{profile}, false)
 	if err := config.Save(path, cfg); err != nil {
 		return err
 	}
-	return a.printf("saved profile %q to %s", profile.Name, path)
+	if err := a.printf("saved profile %q to %s", profile.Name, path); err != nil {
+		return err
+	}
+	idx := cfg.Index(profile.Name)
+	if profile.Workspace != "" {
+		if err := a.workspaceLink(path, cfg, idx, profile.Workspace); err != nil {
+			return fmt.Errorf("workspace link failed: %w; rerun: ghs workspace %s %s", err, profile.Name, profile.Workspace)
+		}
+		return nil
+	}
+	line, err := refreshIdentityFile(path, cfg.Profiles[idx])
+	if err != nil || line == "" {
+		return err
+	}
+	return a.printf("%s", line)
 }
 
 // mergeProfiles adds new profiles at the end and replaces same-named ones

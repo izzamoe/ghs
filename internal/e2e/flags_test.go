@@ -182,6 +182,8 @@ func TestFlags_UsageErrorNoSideEffects(t *testing.T) {
 		{"add-profile", "work"},
 		{"init-ssh", "work", "--upload", "extra"},
 		{"clone", "work", "acme/app", "--upload"},
+		{"workspace", "work"},
+		{"workspace", "work", "~/Documents/work", "--unlink"},
 		{"import-all", "--hostname", "ghe.example.com"},
 	} {
 		sb := newSandbox(t)

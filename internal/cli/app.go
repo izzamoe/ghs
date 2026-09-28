@@ -198,6 +198,8 @@ func (a App) Run(args []string) error {
 		return a.initSSH(pos, flags)
 	case "fix-remote":
 		return a.fixRemote(pos)
+	case "workspace":
+		return a.workspace(pos, flags)
 	case "version":
 		return a.printVersion()
 	case "update":

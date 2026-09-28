@@ -17,7 +17,7 @@ func (a App) listProfiles() error {
 	}
 
 	w := tabwriter.NewWriter(a.out, 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "PROFILE\tGH USER\tGIT EMAIL\tSSH ALIAS"); err != nil {
+	if _, err := fmt.Fprintln(w, "PROFILE\tGH USER\tGIT EMAIL\tSSH ALIAS\tWORKSPACE"); err != nil {
 		return err
 	}
 	for _, profile := range cfg.Profiles {
@@ -25,7 +25,11 @@ func (a App) listProfiles() error {
 		if email == "" {
 			email = "(missing)"
 		}
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", profile.Name, profile.GitHubUser, email, profile.SSHHostAlias); err != nil {
+		workspace := profile.Workspace
+		if workspace == "" {
+			workspace = "-"
+		}
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", profile.Name, profile.GitHubUser, email, profile.SSHHostAlias, workspace); err != nil {
 			return err
 		}
 	}

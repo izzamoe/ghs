@@ -21,5 +21,12 @@ func (a App) setEmail(pos []string) error {
 	if err := config.Save(path, cfg); err != nil {
 		return err
 	}
-	return a.printf("set email for profile %q", profileName)
+	if err := a.printf("set email for profile %q", profileName); err != nil {
+		return err
+	}
+	line, err := refreshIdentityFile(path, cfg.Profiles[idx])
+	if err != nil || line == "" {
+		return err
+	}
+	return a.printf("%s", line)
 }
