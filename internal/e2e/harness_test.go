@@ -84,7 +84,7 @@ func newSandboxHome(t *testing.T, homeName string) *sandbox {
 
 // allowedEnv is the complete set of variable names ghs may see.
 func allowedEnv() []string {
-	names := []string{"PATH", "HOME", "USERPROFILE", "XDG_CONFIG_HOME", "GHS_FAKE_STATE", "GHS_FAKE_LOG"}
+	names := []string{"PATH", "HOME", "USERPROFILE", "XDG_CONFIG_HOME", "GHS_FAKE_STATE", "GHS_FAKE_LOG", "GORACE"}
 	if runtime.GOOS == "windows" {
 		names = append(names, "SYSTEMROOT", "TEMP", "TMP")
 	}
@@ -99,6 +99,9 @@ func (sb *sandbox) env() []string {
 		"XDG_CONFIG_HOME=" + sb.cfgHome,
 		"GHS_FAKE_STATE=" + sb.statePath,
 		"GHS_FAKE_LOG=" + sb.logPath,
+		// The fakes are the race-enabled test binary; without this the race
+		// runtime sleeps one second at every fake's exit.
+		"GORACE=atexit_sleep_ms=0",
 	}
 	if runtime.GOOS == "windows" {
 		env = append(env, "SYSTEMROOT="+os.Getenv("SYSTEMROOT"), "TEMP="+sb.tmp, "TMP="+sb.tmp)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/izzamoe/ghs/internal/config"
@@ -26,10 +25,18 @@ func (a App) addProfile(pos []string, flags map[string]string) error {
 	if err := validateCompleteProfile(profile); err != nil {
 		return err
 	}
-	return a.saveProfile(profile)
+	path, cfg, err := a.loadConfig()
+	if err != nil {
+		return err
+	}
+	return a.saveProfile(path, cfg, profile)
 }
 
 func (a App) addFromGH(pos []string, flags map[string]string) error {
+	path, cfg, err := a.loadConfig()
+	if err != nil {
+		return err
+	}
 	user, err := ghops.New(runner.New()).ActiveUser()
 	if err != nil {
 		return err
@@ -41,10 +48,14 @@ func (a App) addFromGH(pos []string, flags map[string]string) error {
 	if err := validateImportedProfile(profile); err != nil {
 		return err
 	}
-	return a.saveProfile(profile)
+	return a.saveProfile(path, cfg, profile)
 }
 
 func (a App) importAll(flags map[string]string) error {
+	path, cfg, err := a.loadConfig()
+	if err != nil {
+		return err
+	}
 	hostname := cmp.Or(flags["hostname"], "github.com")
 	gh := ghops.New(runner.New())
 	accounts, err := gh.AuthAccounts(hostname)
@@ -77,7 +88,8 @@ func (a App) importAll(flags map[string]string) error {
 	if len(profiles) == 0 {
 		return restoreActive(gh, hostname, activeLogin, fmt.Errorf("no healthy gh accounts found for host %q", hostname))
 	}
-	if err := a.saveProfiles(profiles, hasFlagKey(flags, "no-overwrite")); err != nil {
+	mergeProfiles(&cfg, profiles, hasFlagKey(flags, "no-overwrite"))
+	if err := config.Save(path, cfg); err != nil {
 		return restoreActive(gh, hostname, activeLogin, err)
 	}
 
@@ -90,42 +102,37 @@ func (a App) importAll(flags map[string]string) error {
 	return err
 }
 
-func (a App) saveProfile(profile config.Profile) error {
-	if err := a.saveProfiles([]config.Profile{profile}, false); err != nil {
-		return err
-	}
-	path, err := config.DefaultPath()
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(a.out, "saved profile %q to %s\n", profile.Name, path)
-
-	return err
-}
-
-func (a App) saveProfiles(profiles []config.Profile, noOverwrite bool) error {
-	path, err := config.DefaultPath()
-	if err != nil {
-		return err
-	}
-	cfg, err := config.Load(path)
-	if err != nil {
-		cfg = config.Config{}
-	}
-	for _, profile := range profiles {
-		if idx := slices.IndexFunc(cfg.Profiles, func(p config.Profile) bool { return p.Name == profile.Name }); idx >= 0 {
-			if !noOverwrite {
-				cfg.Profiles[idx] = profile
-			}
-		} else {
-			cfg.Profiles = append(cfg.Profiles, profile)
-		}
-	}
+// saveProfile merges profile into the loaded cfg and saves it atomically.
+func (a App) saveProfile(path string, cfg config.Config, profile config.Profile) error {
+	mergeProfiles(&cfg, []config.Profile{profile}, false)
 	if err := config.Save(path, cfg); err != nil {
 		return err
 	}
+	return a.printf("saved profile %q to %s", profile.Name, path)
+}
 
-	return nil
+// mergeProfiles adds new profiles at the end and replaces same-named ones
+// (unless noOverwrite). A replaced profile keeps its unknown keys and, when
+// the replacement names none, its workspace (FR-005, FR-060).
+func mergeProfiles(cfg *config.Config, profiles []config.Profile, noOverwrite bool) {
+	for _, profile := range profiles {
+		idx := cfg.Index(profile.Name)
+		if idx < 0 {
+			cfg.Profiles = append(cfg.Profiles, profile)
+			continue
+		}
+		if noOverwrite {
+			continue
+		}
+		old := cfg.Profiles[idx]
+		if profile.Workspace == "" {
+			profile.Workspace = old.Workspace
+		}
+		if len(profile.Extra) == 0 {
+			profile.Extra = old.Extra
+		}
+		cfg.Profiles[idx] = profile
+	}
 }
 
 func profileFromGH(name string, user ghops.User, flags map[string]string) (config.Profile, error) {
