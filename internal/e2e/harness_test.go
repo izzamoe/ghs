@@ -73,6 +73,10 @@ func newSandboxHome(t *testing.T, homeName string) *sandbox {
 			t.Fatal(err)
 		}
 	}
+	// Runs before t.TempDir's own cleanup. On Windows a fake started by a
+	// parallel test keeps the shared (hard-linked) image mapped for a few
+	// milliseconds, during which its names cannot be deleted; retry.
+	t.Cleanup(func() { removeWithRetry(t, sb.bin) })
 	if err := writeStateFile(sb.statePath, fakeState{Git: gitState{Repo: true, Toplevel: sb.repoDir}}); err != nil {
 		t.Fatal(err)
 	}
@@ -477,5 +481,20 @@ func skipUnlessPermissionsEnforced(t *testing.T) {
 	skipOnWindows(t, "file mode bits do not deny reads on Windows")
 	if os.Geteuid() == 0 {
 		t.Skip("running as root: mode 000 does not deny reads")
+	}
+}
+
+func removeWithRetry(t *testing.T, dir string) {
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		err := os.RemoveAll(dir)
+		if err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Errorf("remove %s: %v", dir, err)
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }

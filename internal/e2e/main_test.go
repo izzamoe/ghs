@@ -64,8 +64,21 @@ func runTests(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
+	// Copy (never link) the running test binary: Windows refuses to delete
+	// any name of an executable image that is mapped, and the running test
+	// binary stays mapped for the whole run. Sandboxes link to this copy.
+	data, err := os.ReadFile(self)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e: read test binary:", err)
+		return 1
+	}
+	fake := filepath.Join(fakeSource, "fake"+exeSuffix())
+	if err := os.WriteFile(fake, data, 0o755); err != nil {
+		fmt.Fprintln(os.Stderr, "e2e: install fakes:", err)
+		return 1
+	}
 	for _, name := range fakeTools {
-		if err := linkOrCopy(self, filepath.Join(fakeSource, name+exeSuffix())); err != nil {
+		if err := linkOrCopy(fake, filepath.Join(fakeSource, name+exeSuffix())); err != nil {
 			fmt.Fprintln(os.Stderr, "e2e: install fake", name+":", err)
 			return 1
 		}

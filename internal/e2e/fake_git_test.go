@@ -174,8 +174,10 @@ func (f *fakeCtx) resolveConfig(key string, global bool, dir string) (scope, ori
 		}
 	}
 	if !global && g.Repo {
-		home := os.Getenv("HOME")
-		cwd := strings.ToLower(filepath.ToSlash(dir)) + "/"
+		// Like Git, match the resolved directory: on macOS the temp dir
+		// /var/... is really /private/var/..., which is what Getwd reports.
+		home := canonicalPath(os.Getenv("HOME"))
+		cwd := strings.ToLower(filepath.ToSlash(canonicalPath(dir))) + "/"
 		keys := make([]string, 0, len(g.Global))
 		for k := range g.Global {
 			keys = append(keys, k)
@@ -190,6 +192,8 @@ func (f *fakeCtx) resolveConfig(key string, global bool, dir string) (scope, ori
 			}
 			if rest, ok := strings.CutPrefix(pattern, "~/"); ok {
 				pattern = filepath.ToSlash(home) + "/" + rest
+			} else {
+				pattern = filepath.ToSlash(canonicalPath(strings.TrimSuffix(pattern, "/"))) + "/"
 			}
 			if !strings.HasPrefix(cwd, strings.ToLower(pattern)) {
 				continue
@@ -263,4 +267,12 @@ func (f *fakeCtx) gitClone(url, dest string) int {
 	g.Local = nil
 	f.dirty = true
 	return 0
+}
+
+// canonicalPath resolves symlinks when the path exists.
+func canonicalPath(p string) string {
+	if resolved, err := filepath.EvalSymlinks(p); err == nil {
+		return resolved
+	}
+	return p
 }

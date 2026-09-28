@@ -41,14 +41,14 @@ func TestExpandPathWindowsStyleHome(t *testing.T) {
 	home := `/home/izzam`
 	path := `~/.ssh/id_ed25519_work`
 	got := filepath.Join(home, path[2:])
-	want := `/home/izzam/.ssh/id_ed25519_work`
+	want := filepath.Join("/home/izzam", ".ssh", "id_ed25519_work")
 	if got != want {
 		t.Fatalf("filepath.Join = %q, want %q", got, want)
 	}
 
 	// Bare ~ expands to home
 	bare := `~`
-	if bare != `~` || filepath.Join(home, "") != home {
+	if bare != `~` || filepath.Join(home, "") != filepath.Clean(home) {
 		t.Fatal("bare ~ handling broken")
 	}
 }
