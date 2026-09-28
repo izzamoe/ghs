@@ -1,0 +1,3 @@
+# Keep LF on every platform so gofmt, README parsing, and the changelog tool
+# behave identically on Windows checkouts.
+* text=auto eol=lf

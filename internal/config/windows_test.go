@@ -41,14 +41,14 @@ func TestExpandPathWindowsStyleHome(t *testing.T) {
 	home := `/home/izzam`
 	path := `~/.ssh/id_ed25519_work`
 	got := filepath.Join(home, path[2:])
-	want := `/home/izzam/.ssh/id_ed25519_work`
+	want := filepath.Join("/home/izzam", ".ssh", "id_ed25519_work")
 	if got != want {
 		t.Fatalf("filepath.Join = %q, want %q", got, want)
 	}
 
 	// Bare ~ expands to home
 	bare := `~`
-	if bare != `~` || filepath.Join(home, "") != home {
+	if bare != `~` || filepath.Join(home, "") != filepath.Clean(home) {
 		t.Fatal("bare ~ handling broken")
 	}
 }
@@ -77,5 +77,46 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	profile, ok := loaded.FindProfile("work")
 	if !ok || profile.GitHubUser != "zamyb" || profile.SSHKey != "~/.ssh/id_ed25519_zamyb" {
 		t.Fatalf("round-trip mismatch: %+v", profile)
+	}
+}
+
+func TestWorkspaceWindowsPaths(t *testing.T) {
+	t.Parallel()
+
+	for in, want := range map[string]string{
+		`C:\Users\John Doe\work`:  "C:/Users/John Doe/work",
+		`C:\Users\x\work\`:        "C:/Users/x/work",
+		`~\Documents\work`:        "~/Documents/work",
+		"D:/src/github/work-repo": "D:/src/github/work-repo",
+	} {
+		if err := ValidateWorkspace(in); err != nil {
+			t.Errorf("ValidateWorkspace(%q) = %v", in, err)
+		}
+		if got := NormalizeWorkspace(in); got != want {
+			t.Errorf("NormalizeWorkspace(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, bad := range []string{`C:\`, "C:", `C:relative`, `\\`} {
+		if err := ValidateWorkspace(bad); err == nil {
+			t.Errorf("ValidateWorkspace(%q) = nil, want error", bad)
+		}
+	}
+	// Nested detection works across slash styles.
+	cfg := Config{Profiles: []Profile{{Name: "work", SSHHostAlias: "a", Workspace: "C:/Users/x/work"}}}
+	if err := cfg.CheckUnique(Profile{Name: "me", SSHHostAlias: "b", Workspace: `c:\users\x\work\sub`}, -1); err == nil {
+		t.Error("nested Windows workspace not detected")
+	}
+}
+
+func TestKeyPathWindowsForms(t *testing.T) {
+	t.Parallel()
+
+	for _, ok := range []string{`C:\Users\John Doe\.ssh\id_ed25519`, "C:/Users/x/.ssh/id", "~/.ssh/id"} {
+		if err := ValidateKeyPath(ok); err != nil {
+			t.Errorf("ValidateKeyPath(%q) = %v", ok, err)
+		}
+	}
+	if err := ValidateKeyPath(`.ssh\id`); err == nil {
+		t.Error("relative Windows key path accepted")
 	}
 }

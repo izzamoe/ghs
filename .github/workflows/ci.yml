@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          # CI must use the version from go.mod (constitution Principle V).
+          go-version-file: go.mod
+
+      - name: gofmt
+        shell: bash
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then
+            echo "gofmt needed:"
+            echo "$out"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # Runs every package, including internal/cli (TestReadmeGoVersionMatchesGoMod,
+      # TestReadmeCommandListMatchesHelp) and the hermetic end-to-end suite in
+      # internal/e2e, which uses fake gh/git/ssh/ssh-keygen and needs no network.
+      - name: go test -race
+        run: go test -race -count=1 ./...

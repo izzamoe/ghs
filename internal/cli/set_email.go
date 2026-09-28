@@ -1,37 +1,32 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/izzamoe/ghs/internal/config"
 )
 
-func (a App) setEmail(args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf("usage: ghs set-email <profile> <email>")
+func (a App) setEmail(pos []string) error {
+	profileName, email := pos[0], pos[1]
+	if err := config.ValidateEmail(email); err != nil {
+		return usageErrorf("set-email", "%v", err)
 	}
-	profileName := args[0]
-	email := args[1]
-
 	path, cfg, err := a.loadConfig()
 	if err != nil {
 		return err
 	}
-	updated := false
-	for i, profile := range cfg.Profiles {
-		if profile.Name == profileName {
-			cfg.Profiles[i].GitEmail = email
-			updated = true
-			break
-		}
+	_, idx, err := findProfile(cfg, profileName)
+	if err != nil {
+		return err
 	}
-	if !updated {
-		return fmt.Errorf("profile %q not found", profileName)
-	}
+	cfg.Profiles[idx].GitEmail = email
 	if err := config.Save(path, cfg); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(a.out, "set email for profile %q\n", profileName)
-
-	return err
+	if err := a.printf("set email for profile %q", profileName); err != nil {
+		return err
+	}
+	line, err := refreshIdentityFile(path, cfg.Profiles[idx])
+	if err != nil || line == "" {
+		return err
+	}
+	return a.printf("%s", line)
 }
