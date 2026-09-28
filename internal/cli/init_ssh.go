@@ -7,11 +7,8 @@ import (
 	"github.com/izzamoe/ghs/internal/sshops"
 )
 
-func (a App) initSSH(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: ghs init-ssh <profile> [--upload]")
-	}
-	profile, err := a.loadProfile(args[0])
+func (a App) initSSH(pos []string, flags map[string]string) error {
+	profile, err := a.loadProfile(pos[0])
 	if err != nil {
 		return err
 	}
@@ -22,7 +19,7 @@ func (a App) initSSH(args []string) error {
 	if err := ssh.EnsureConfig(profile); err != nil {
 		return err
 	}
-	if hasFlag(args[1:], "--upload") {
+	if hasFlagKey(flags, "upload") {
 		if err := ssh.UploadKey(profile); err != nil {
 			return err
 		}

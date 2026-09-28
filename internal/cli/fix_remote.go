@@ -7,20 +7,21 @@ import (
 	"github.com/izzamoe/ghs/internal/runner"
 )
 
-func (a App) fixRemote(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: ghs fix-remote <profile>")
+func (a App) fixRemote(pos []string) error {
+	_, cfg, err := a.loadConfig()
+	if err != nil {
+		return err
 	}
-	profile, err := a.loadProfile(args[0])
+	profile, _, err := findProfile(cfg, pos[0])
 	if err != nil {
 		return err
 	}
 	git := gitops.New(runner.New())
-	oldURL, err := git.OriginURL()
+	oldURL, _, err := git.Origin()
 	if err != nil {
 		return err
 	}
-	newURL, err := gitops.RewriteGitHubURL(oldURL, profile.SSHHostAlias)
+	newURL, err := gitops.RewriteGitHubURL(oldURL, profile.SSHHostAlias, cfg.Aliases())
 	if err != nil {
 		return err
 	}

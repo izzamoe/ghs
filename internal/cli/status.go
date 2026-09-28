@@ -13,8 +13,9 @@ func (a App) status() error {
 	run := runner.New()
 	ghStatus, ghErr := run.Output("gh", "auth", "status", "--active")
 	git := gitops.New(run)
-	gitName, gitEmail, gitErr := git.CurrentIdentity()
-	remote, remoteErr := git.OriginURL()
+	identity, gitErr := git.IdentityWithOrigin(false)
+	gitName, gitEmail := identity.Name, identity.Email
+	remote, _, remoteErr := git.Origin()
 
 	if _, err := fmt.Fprintln(a.out, "ghs status"); err != nil {
 		return err

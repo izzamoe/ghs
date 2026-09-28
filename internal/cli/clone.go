@@ -2,24 +2,22 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/izzamoe/ghs/internal/gitops"
 	"github.com/izzamoe/ghs/internal/runner"
 	"github.com/izzamoe/ghs/internal/sshops"
 )
 
-func (a App) clone(args []string) error {
-	if len(args) < 2 {
-		return fmt.Errorf("usage: ghs clone <profile> <owner/repo|github-url> [directory] [--upload-key]")
-	}
-	profile, err := a.loadProfile(args[0])
+func (a App) clone(pos []string, flags map[string]string) error {
+	profile, err := a.loadProfile(pos[0])
 	if err != nil {
 		return err
 	}
-	repoInput := args[1]
-	flags := parseFlags(args[2:])
-	directory := cloneDirectoryArg(args[2:])
+	repoInput := pos[1]
+	directory := ""
+	if len(pos) == 3 {
+		directory = pos[2]
+	}
 	if directory == "" {
 		directory = gitops.CloneDirectory(repoInput)
 	}
@@ -62,14 +60,4 @@ func (a App) clone(args []string) error {
 	_, err = fmt.Fprintf(a.out, "cloned %s into %s; git identity was not set because profile email is empty\n", cloneURL, directory)
 
 	return err
-}
-
-func cloneDirectoryArg(args []string) string {
-	for _, arg := range args {
-		if strings.HasPrefix(arg, "--") {
-			continue
-		}
-		return arg
-	}
-	return ""
 }

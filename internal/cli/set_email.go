@@ -6,12 +6,9 @@ import (
 	"github.com/izzamoe/ghs/internal/config"
 )
 
-func (a App) setEmail(args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf("usage: ghs set-email <profile> <email>")
-	}
-	profileName := args[0]
-	email := args[1]
+func (a App) setEmail(pos []string) error {
+	profileName := pos[0]
+	email := pos[1]
 
 	path, cfg, err := a.loadConfig()
 	if err != nil {

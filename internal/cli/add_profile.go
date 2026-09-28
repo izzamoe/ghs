@@ -15,12 +15,8 @@ import (
 
 var unsafeProfilePathChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
-func (a App) addProfile(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: ghs add-profile <name> --gh-user <user> --git-name <name> --git-email <email> --ssh-alias <alias> --ssh-key <path>")
-	}
-	profile := config.Profile{Name: args[0]}
-	flags := parseFlags(args[1:])
+func (a App) addProfile(pos []string, flags map[string]string) error {
+	profile := config.Profile{Name: pos[0]}
 	profile.GitHubUser = flags["gh-user"]
 	profile.GitName = flags["git-name"]
 	profile.GitEmail = flags["git-email"]
@@ -33,16 +29,12 @@ func (a App) addProfile(args []string) error {
 	return a.saveProfile(profile)
 }
 
-func (a App) addFromGH(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: ghs add-from-gh <name> [--git-name <name>] [--git-email <email>] [--ssh-alias <alias>] [--ssh-key <path>]")
-	}
-
+func (a App) addFromGH(pos []string, flags map[string]string) error {
 	user, err := ghops.New(runner.New()).ActiveUser()
 	if err != nil {
 		return err
 	}
-	profile, err := profileFromGH(args[0], user, parseFlags(args[1:]))
+	profile, err := profileFromGH(pos[0], user, flags)
 	if err != nil {
 		return err
 	}
@@ -52,8 +44,7 @@ func (a App) addFromGH(args []string) error {
 	return a.saveProfile(profile)
 }
 
-func (a App) importAll(args []string) error {
-	flags := parseFlags(args)
+func (a App) importAll(flags map[string]string) error {
 	hostname := cmp.Or(flags["hostname"], "github.com")
 	gh := ghops.New(runner.New())
 	accounts, err := gh.AuthAccounts(hostname)
@@ -208,22 +199,4 @@ func validateCompleteProfile(profile config.Profile) error {
 func hasFlagKey(flags map[string]string, key string) bool {
 	_, ok := flags[key]
 	return ok
-}
-
-func parseFlags(args []string) map[string]string {
-	flags := make(map[string]string)
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if !strings.HasPrefix(arg, "--") || len(arg) == 2 {
-			continue
-		}
-		key := arg[2:]
-		if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
-			flags[key] = ""
-			continue
-		}
-		flags[key] = args[i+1]
-		i++
-	}
-	return flags
 }

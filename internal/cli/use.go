@@ -7,11 +7,8 @@ import (
 	"github.com/izzamoe/ghs/internal/runner"
 )
 
-func (a App) useProfile(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("usage: ghs use <profile> [--global]")
-	}
-	profile, err := a.loadProfile(args[0])
+func (a App) useProfile(pos []string, flags map[string]string) error {
+	profile, err := a.loadProfile(pos[0])
 	if err != nil {
 		return err
 	}
@@ -24,7 +21,7 @@ func (a App) useProfile(args []string) error {
 
 		return err
 	}
-	if err := gitops.New(run).SetIdentity(profile, hasFlag(args[1:], "--global")); err != nil {
+	if _, err := gitops.New(run).SetIdentity(profile, hasFlagKey(flags, "global")); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintf(a.out, "using profile %q for gh and git identity\n", profile.Name)
