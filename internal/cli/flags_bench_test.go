@@ -2,26 +2,21 @@ package cli
 
 import "testing"
 
+var sinkPos []string
 var sinkMap map[string]string
-var sinkBool bool
 
-func BenchmarkParseFlags_Typical(b *testing.B) {
-	args := []string{"--gh-user", "zamyb", "--git-name", "IZZAMUDDIN", "--git-email", "work@example.com", "--ssh-alias", "github-work", "--ssh-key", "~/.ssh/id_ed25519_work"}
+func BenchmarkParseArgs_Typical(b *testing.B) {
+	spec, _ := lookupCommand("add-profile")
+	args := []string{"work", "--gh-user", "zamyb", "--git-name", "IZZAMUDDIN", "--git-email", "work@example.com", "--ssh-alias", "github-work", "--ssh-key", "~/.ssh/id_ed25519_work"}
 	for b.Loop() {
-		sinkMap = parseFlags(args)
+		sinkPos, sinkMap, _ = parseArgs(spec, args)
 	}
 }
 
-func BenchmarkParseFlags_BoolFlags(b *testing.B) {
+func BenchmarkParseArgs_BoolFlags(b *testing.B) {
+	spec, _ := lookupCommand("import-all")
 	args := []string{"--require-email", "--no-overwrite"}
 	for b.Loop() {
-		sinkMap = parseFlags(args)
-	}
-}
-
-func BenchmarkHasFlag(b *testing.B) {
-	args := []string{"--global"}
-	for b.Loop() {
-		sinkBool = hasFlag(args, "--global")
+		sinkPos, sinkMap, _ = parseArgs(spec, args)
 	}
 }
