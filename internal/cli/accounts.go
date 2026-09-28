@@ -60,3 +60,37 @@ func displayLogin(login string) string {
 	}
 	return login
 }
+
+// accountView is a read-only snapshot of the GitHub CLI accounts for
+// github.com, degraded to "unknown" when gh is missing or fails (FR-079).
+type accountView struct {
+	accounts []ghops.AuthAccount
+	known    bool
+	reason   string // why the view is unknown
+	active   string // "" when no account is active
+}
+
+func readAccounts() accountView {
+	if err := requireTool("gh"); err != nil {
+		return accountView{reason: "gh not found"}
+	}
+	accounts, err := ghops.New(runner.New()).AuthAccounts(githubHost)
+	if err != nil {
+		return accountView{reason: shortReason(err)}
+	}
+	active, _, _ := ghops.ActiveLogin(accounts)
+	return accountView{accounts: accounts, known: true, active: active}
+}
+
+// shortReason reduces "run gh: exit status 1: <message>" to the tool's own
+// message, first line only.
+func shortReason(err error) string {
+	s := err.Error()
+	if _, rest, ok := strings.Cut(s, ": exit status "); ok {
+		if _, msg, ok := strings.Cut(rest, ": "); ok {
+			s = msg
+		}
+	}
+	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
+	return line
+}
