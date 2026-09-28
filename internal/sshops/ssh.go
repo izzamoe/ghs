@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/izzamoe/ghs/internal/config"
+	"github.com/izzamoe/ghs/internal/ghops"
 )
 
 // commandRunner is the subset of runner.Runner that SSH needs.
@@ -161,13 +162,17 @@ func quoteIfNeeded(p string) string {
 	return p
 }
 
-func (s SSH) UploadKey(profile config.Profile) error {
+// UploadKey adds the profile's public key (never the private key) to the
+// active GitHub CLI account. A key that is already registered is reported
+// through alreadyPresent.
+func UploadKey(gh ghops.GH, profile config.Profile) (pubPath string, alreadyPresent bool, err error) {
 	keyPath, err := config.ExpandPath(profile.SSHKey)
 	if err != nil {
-		return err
+		return "", false, err
 	}
-	title := "ghs-" + profile.Name
-	return s.runner.Run("gh", "ssh-key", "add", keyPath+".pub", "--title", title)
+	pubPath = keyPath + ".pub"
+	alreadyPresent, err = gh.AddSSHKey(pubPath, "ghs-"+profile.Name)
+	return pubPath, alreadyPresent, err
 }
 
 // hasHostBlock reports whether any Host line lists alias (case-insensitive,
