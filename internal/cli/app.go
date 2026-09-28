@@ -202,6 +202,8 @@ func (a App) Run(args []string) error {
 		return a.workspace(pos, flags)
 	case "remove":
 		return a.remove(pos)
+	case "doctor":
+		return a.doctor(pos, flags)
 	case "version":
 		return a.printVersion()
 	case "update":
