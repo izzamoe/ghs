@@ -13,11 +13,18 @@ import (
 // usePlan is everything ghs use decides during preflight, before its first
 // mutation.
 type usePlan struct {
-	profile  config.Profile
-	global   bool
-	inRepo   bool
-	toplevel string
-	previous string // active login before the command ("" = none)
+	cfg       config.Config
+	profile   config.Profile
+	global    bool
+	fixRemote bool
+	haveGit   bool
+	inRepo    bool
+	toplevel  string
+	previous  string // active login before the command ("" = none)
+
+	originOld     string // with --fix-remote: current origin
+	originNew     string // with --fix-remote: rewritten origin
+	originCorrect bool   // with --fix-remote: origin already uses the alias
 }
 
 func (a App) useProfile(pos []string, flags map[string]string) error {
@@ -33,7 +40,7 @@ func (a App) useProfile(pos []string, flags map[string]string) error {
 	gh := ghops.New(run)
 	git := gitops.New(run)
 
-	plan, err := preflightUse(gh, git, profile, hasFlagKey(flags, "global"))
+	plan, err := preflightUse(gh, git, cfg, profile, hasFlagKey(flags, "global"), hasFlagKey(flags, "fix-remote"))
 	if err != nil {
 		return err
 	}
@@ -46,17 +53,32 @@ func (a App) useProfile(pos []string, flags map[string]string) error {
 			return err
 		}
 	}
+
+	// After a successful switch, a read-only look at origin tells the user
+	// when pushes would still bypass the profile's key.
+	if !plan.fixRemote && plan.inRepo {
+		if url, exists, err := git.Origin(); err == nil && exists {
+			if warning := originWarning(cfg, profile, url); warning != "" {
+				a.warnf("%s", warning)
+			}
+		}
+	}
 	return nil
 }
 
-// preflightUse checks every precondition before anything changes (FR-026):
-// the profile's values, the account's authentication, and the identity
-// target.
-func preflightUse(gh ghops.GH, git gitops.Git, profile config.Profile, global bool) (usePlan, error) {
-	plan := usePlan{profile: profile, global: global}
+// preflightUse checks every precondition before anything changes (FR-026,
+// FR-050): the profile's values, the account's authentication, the
+// identity target, and with --fix-remote the rewrite itself.
+func preflightUse(gh ghops.GH, git gitops.Git, cfg config.Config, profile config.Profile, global, fixRemote bool) (usePlan, error) {
+	plan := usePlan{cfg: cfg, profile: profile, global: global, fixRemote: fixRemote}
 	if profile.GitEmail != "" {
 		if err := validateIdentityFields(profile); err != nil {
 			return plan, err
+		}
+	}
+	if fixRemote {
+		if err := config.ValidateAlias(profile.SSHHostAlias); err != nil {
+			return plan, fmt.Errorf("profile %q: %w", profile.Name, err)
 		}
 	}
 	previous, err := accountPreflight(gh, profile)
@@ -64,23 +86,44 @@ func preflightUse(gh ghops.GH, git gitops.Git, profile config.Profile, global bo
 		return plan, err
 	}
 	plan.previous = previous
-	if profile.GitEmail != "" {
-		if err := requireTool("git"); err != nil {
-			return plan, err
-		}
+
+	gitErr := requireTool("git")
+	plan.haveGit = gitErr == nil
+	if !plan.haveGit && (profile.GitEmail != "" || fixRemote) {
+		return plan, gitErr
+	}
+	if plan.haveGit {
 		plan.toplevel, plan.inRepo, err = git.InRepo()
 		if err != nil {
 			return plan, err
 		}
-		if !global && !plan.inRepo {
-			return plan, errors.New("not inside a git repository; pass --global to set the global identity")
+	}
+	if fixRemote {
+		if !plan.inRepo {
+			return plan, errors.New("--fix-remote needs a repository: not inside a git repository")
 		}
+		url, exists, err := git.Origin()
+		if err != nil {
+			return plan, err
+		}
+		if !exists {
+			url = ""
+		}
+		plan.originOld = url
+		plan.originNew, plan.originCorrect, err = originRewrite(cfg, profile, url)
+		if err != nil {
+			return plan, err
+		}
+	}
+	if profile.GitEmail != "" && !global && !plan.inRepo {
+		return plan, errors.New("not inside a git repository; pass --global to set the global identity")
 	}
 	return plan, nil
 }
 
-// applyUse performs the mutations in order and, on failure, undoes the
-// earlier ones in reverse order, reporting every result (FR-027, FR-051).
+// applyUse performs the mutations in order (origin, account, identity) and,
+// on failure, undoes the earlier ones in reverse order, reporting every
+// result (FR-027, FR-051).
 func applyUse(gh ghops.GH, git gitops.Git, plan usePlan) ([]string, error) {
 	p := plan.profile
 	var lines []string
@@ -92,6 +135,24 @@ func applyUse(gh ghops.GH, git gitops.Git, plan usePlan) ([]string, error) {
 			errs = append(errs, undo[i]())
 		}
 		return errors.Join(errs...)
+	}
+
+	if plan.fixRemote {
+		if plan.originCorrect {
+			lines = append(lines, "origin already correct: "+plan.originOld)
+		} else {
+			if err := git.SetOriginURL(plan.originNew); err != nil {
+				return nil, rollback(fmt.Errorf("rewrite origin: %w", err))
+			}
+			lines = append(lines, fmt.Sprintf("origin updated: %s -> %s", plan.originOld, plan.originNew))
+			old := plan.originOld
+			undo = append(undo, func() error {
+				if err := git.SetOriginURL(old); err != nil {
+					return fmt.Errorf("could not restore origin to %s: %w", old, err)
+				}
+				return fmt.Errorf("restored origin to %s", old)
+			})
+		}
 	}
 
 	if equalLogin(plan.previous, p.GitHubUser) {
