@@ -7,19 +7,19 @@ var sinkErr error
 
 func BenchmarkRewriteGitHubURL_SCP(b *testing.B) {
 	for b.Loop() {
-		sinkString, sinkErr = RewriteGitHubURL("git@github.com:owner/repo.git", "github-work")
+		sinkString, sinkErr = RewriteGitHubURL("git@github.com:owner/repo.git", "github-work", nil)
 	}
 }
 
 func BenchmarkRewriteGitHubURL_HTTPS(b *testing.B) {
 	for b.Loop() {
-		sinkString, sinkErr = RewriteGitHubURL("https://github.com/owner/repo.git", "github-work")
+		sinkString, sinkErr = RewriteGitHubURL("https://github.com/owner/repo.git", "github-work", nil)
 	}
 }
 
 func BenchmarkRewriteGitHubURL_OtherAlias(b *testing.B) {
 	for b.Loop() {
-		sinkString, sinkErr = RewriteGitHubURL("git@github-other:owner/repo.git", "github-work")
+		sinkString, sinkErr = RewriteGitHubURL("git@github-other:owner/repo.git", "github-work", []string{"github-other"})
 	}
 }
 

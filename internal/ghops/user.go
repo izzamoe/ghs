@@ -2,9 +2,9 @@ package ghops
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-
-	"github.com/izzamoe/ghs/internal/runner"
+	"strings"
 )
 
 type User struct {
@@ -28,11 +28,19 @@ type Email struct {
 	Visibility string `json:"visibility"`
 }
 
-type GH struct {
-	runner runner.Runner
+// commandRunner is the subset of runner.Runner that GH needs; unit tests
+// substitute a stub.
+type commandRunner interface {
+	Run(name string, args ...string) error
+	OutputBytes(name string, args ...string) ([]byte, error)
+	CombinedOutput(name string, args ...string) (string, int, error)
 }
 
-func New(run runner.Runner) GH {
+type GH struct {
+	runner commandRunner
+}
+
+func New(run commandRunner) GH {
 	return GH{runner: run}
 }
 
@@ -75,12 +83,101 @@ func ParseAuthAccounts(hostname string, data []byte) ([]AuthAccount, error) {
 		return nil, fmt.Errorf("parse gh auth status: %w", err)
 	}
 
-	accounts := status.Hosts[hostname]
-	if len(accounts) == 0 {
-		return nil, fmt.Errorf("no gh accounts found for host %q", hostname)
-	}
+	return status.Hosts[hostname], nil
+}
 
-	return accounts, nil
+// ActiveAccount returns the login of the active account for hostname; ok is
+// false when the GitHub CLI reports no active account there.
+func (g GH) ActiveAccount(hostname string) (login string, ok bool, err error) {
+	accounts, err := g.AuthAccounts(hostname)
+	if err != nil {
+		return "", false, err
+	}
+	return ActiveLogin(accounts)
+}
+
+// ActiveLogin picks the active account's login from an account list.
+func ActiveLogin(accounts []AuthAccount) (string, bool, error) {
+	for _, account := range accounts {
+		if account.Active && account.Login != "" {
+			return account.Login, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+// IsAuthenticated reports whether login is logged in and healthy (state
+// "success") for hostname.
+func (g GH) IsAuthenticated(hostname string, login string) (bool, error) {
+	accounts, err := g.AuthAccounts(hostname)
+	if err != nil {
+		return false, err
+	}
+	return FindAccount(accounts, login).State == "success", nil
+}
+
+// FindAccount returns the account with this login (case-insensitive), or the
+// zero value.
+func FindAccount(accounts []AuthAccount, login string) AuthAccount {
+	for _, account := range accounts {
+		if login != "" && strings.EqualFold(account.Login, login) {
+			return account
+		}
+	}
+	return AuthAccount{}
+}
+
+// WithAccount runs fn while target is the active account and then restores
+// the previously active account, on success and on failure. No switch is
+// made when target is already active. switched reports whether a switch
+// happened. The returned error names both fn's failure and the result of
+// the restore.
+func (g GH) WithAccount(hostname string, target string, fn func() error) (switched bool, err error) {
+	previous, _, err := g.ActiveAccount(hostname)
+	if err != nil {
+		return false, err
+	}
+	if strings.EqualFold(previous, target) {
+		return false, fn()
+	}
+	if err := g.SwitchUser(hostname, target); err != nil {
+		return false, fmt.Errorf("switch gh account to %s: %w", target, err)
+	}
+	fnErr := fn()
+	if previous == "" {
+		return true, fnErr
+	}
+	return true, RestoreResult(fnErr, g.SwitchUser(hostname, previous), previous)
+}
+
+// RestoreResult combines an operation's error with the outcome of switching
+// back to previous, so both are always reported.
+func RestoreResult(opErr error, restoreErr error, previous string) error {
+	switch {
+	case opErr == nil && restoreErr == nil:
+		return nil
+	case restoreErr != nil:
+		return errors.Join(opErr, fmt.Errorf("could not restore gh account %s: %w", previous, restoreErr))
+	default:
+		return errors.Join(opErr, fmt.Errorf("restored gh account %s", previous))
+	}
+}
+
+// AddSSHKey uploads a public key to the active account. A key that is
+// already registered is reported through alreadyPresent, not as an error.
+func (g GH) AddSSHKey(pubPath string, title string) (alreadyPresent bool, err error) {
+	out, code, err := g.runner.CombinedOutput("gh", "ssh-key", "add", pubPath, "--title", title)
+	if err != nil {
+		return false, err
+	}
+	already := strings.Contains(strings.ToLower(out), "already")
+	if code == 0 {
+		return already, nil
+	}
+	if already {
+		return true, nil
+	}
+	return false, fmt.Errorf("gh ssh-key add failed (exit %d): %s", code, strings.TrimSpace(out))
 }
 
 func (g GH) SwitchUser(hostname string, login string) error {
