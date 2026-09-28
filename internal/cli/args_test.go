@@ -38,6 +38,7 @@ func TestParseArgs(t *testing.T) {
 		{name: "duplicate flag", spec: use, args: []string{"work", "--global", "--global"}, wantErr: "flag --global given more than once"},
 		{name: "duplicate value flag", spec: add, args: []string{"w", "--gh-user", "a", "--gh-user", "b"}, wantErr: "flag --gh-user given more than once"},
 		{name: "value on boolean flag", spec: use, args: []string{"work", "--global", "yes"}, wantErr: "flag --global does not take a value"},
+		{name: "value on boolean flag before positional", spec: use, args: []string{"--global", "yes", "work"}, wantErr: "flag --global does not take a value"},
 		{name: "equals value on boolean flag", spec: use, args: []string{"work", "--global=yes"}, wantErr: "flag --global does not take a value"},
 		{name: "surplus positional", spec: use, args: []string{"work", "extra"}, wantErr: `unexpected argument "extra"`},
 		{name: "surplus positional on list", spec: none, args: []string{"extra"}, wantErr: `unexpected argument "extra"`},

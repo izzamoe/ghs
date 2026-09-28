@@ -98,7 +98,9 @@ func parseArgs(spec cmdSpec, args []string) (pos []string, flags map[string]stri
 	}
 
 	if len(pos) > spec.MaxPos {
-		for i := spec.MaxPos; i < len(pos); i++ {
+		// A positional right after a boolean flag is the likely culprit,
+		// wherever it sits ("use --global yes work").
+		for i := range pos {
 			if flag, ok := afterBool[i]; ok {
 				return nil, nil, usageErrorf(spec.Name, "flag --%s does not take a value (got %q)", flag, pos[i])
 			}
