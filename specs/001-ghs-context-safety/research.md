@@ -62,8 +62,8 @@ against the locally installed tools (`gh 2.101.0`, `git 2.55.0`,
 
   ```ini
   [user]
-  	name = <git_name>
-  	email = <git_email>
+  name = <git_name>
+  email = <git_email>
   ```
 
   and runs `git config --global --add "includeIf.gitdir/i:<pattern>.path" <file>`

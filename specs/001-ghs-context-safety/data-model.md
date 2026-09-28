@@ -52,8 +52,8 @@ line (FR-013).
 
   ```ini
   [user]
-  	name = <GitName>
-  	email = <GitEmail>
+  name = <GitName>
+  email = <GitEmail>
   ```
 
 - **Rules**: written atomically with mode `0600` (FR-054); rewritten whenever a
