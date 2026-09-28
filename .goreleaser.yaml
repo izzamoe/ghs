@@ -1,0 +1,45 @@
+# Release configuration for ghs (GoReleaser v2). Run by
+# .github/workflows/release.yml on every v* tag; release notes come from the
+# matching CHANGELOG.md section, not from commit messages.
+version: 2
+
+project_name: ghs
+
+builds:
+  - id: ghs
+    main: ./cmd/ghs
+    binary: ghs
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    # ghs version reads the module version from build info; Go stamps the
+    # release tag there from VCS data, so no -X flags are needed.
+    ldflags:
+      - -s -w
+
+archives:
+  - id: ghs
+    ids: [ghs]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: izzamoe
+    name: ghs
