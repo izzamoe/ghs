@@ -2,37 +2,46 @@ package cli
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 
 	"github.com/izzamoe/ghs/internal/config"
 	"github.com/izzamoe/ghs/internal/ghops"
 	"github.com/izzamoe/ghs/internal/runner"
 )
 
-var unsafeProfilePathChars = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
-
 func (a App) addProfile(pos []string, flags map[string]string) error {
-	profile := config.Profile{Name: pos[0]}
-	profile.GitHubUser = flags["gh-user"]
-	profile.GitName = flags["git-name"]
-	profile.GitEmail = flags["git-email"]
-	profile.SSHHostAlias = flags["ssh-alias"]
-	profile.SSHKey = flags["ssh-key"]
-	profile.Workspace = flags["workspace"]
-	if err := validateCompleteProfile(profile); err != nil {
+	profile := config.Profile{
+		Name:         pos[0],
+		GitHubUser:   flags["gh-user"],
+		GitName:      flags["git-name"],
+		GitEmail:     flags["git-email"],
+		SSHHostAlias: flags["ssh-alias"],
+		SSHKey:       flags["ssh-key"],
+	}
+	for _, required := range []string{"gh-user", "git-name", "git-email", "ssh-alias", "ssh-key"} {
+		if _, ok := flags[required]; !ok {
+			return usageErrorf("add-profile", "missing required flag --%s", required)
+		}
+	}
+	if err := validateFlagValues("add-profile", profile.Name, flags); err != nil {
 		return err
 	}
+
 	path, cfg, err := a.loadConfig()
 	if err != nil {
+		return err
+	}
+	if err := cfg.CheckUnique(profile, cfg.Index(profile.Name)); err != nil {
 		return err
 	}
 	return a.saveProfile(path, cfg, profile)
 }
 
 func (a App) addFromGH(pos []string, flags map[string]string) error {
+	name := pos[0]
+	if err := validateFlagValues("add-from-gh", name, flags); err != nil {
+		return err
+	}
 	path, cfg, err := a.loadConfig()
 	if err != nil {
 		return err
@@ -41,17 +50,23 @@ func (a App) addFromGH(pos []string, flags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	profile, err := profileFromGH(pos[0], user, flags)
+	profile, err := profileFromGH(name, user, flags)
 	if err != nil {
 		return err
 	}
-	if err := validateImportedProfile(profile); err != nil {
+	if err := validateGHProfile(profile, flags); err != nil {
+		return err
+	}
+	if err := cfg.CheckUnique(profile, cfg.Index(profile.Name)); err != nil {
 		return err
 	}
 	return a.saveProfile(path, cfg, profile)
 }
 
 func (a App) importAll(flags map[string]string) error {
+	if err := validateFlagValues("import-all", "", flags); err != nil {
+		return err
+	}
 	path, cfg, err := a.loadConfig()
 	if err != nil {
 		return err
@@ -64,6 +79,8 @@ func (a App) importAll(flags map[string]string) error {
 	}
 
 	activeLogin := activeAccountLogin(accounts)
+	merged := cfg
+	merged.Profiles = append([]config.Profile(nil), cfg.Profiles...)
 	profiles := make([]config.Profile, 0, len(accounts))
 	for _, account := range accounts {
 		if account.State != "success" || account.Login == "" {
@@ -80,26 +97,91 @@ func (a App) importAll(flags map[string]string) error {
 		if err != nil {
 			return restoreActive(gh, hostname, activeLogin, err)
 		}
-		if err := validateImportedProfile(profile); err != nil {
-			return restoreActive(gh, hostname, activeLogin, err)
+		if err := config.ValidateName(profile.Name, reservedNames()); err != nil {
+			return restoreActive(gh, hostname, activeLogin, fmt.Errorf("account %s: %w", account.Login, err))
 		}
+		if err := validateGHProfile(profile, flags); err != nil {
+			return restoreActive(gh, hostname, activeLogin, fmt.Errorf("account %s: %w", account.Login, err))
+		}
+		idx := merged.Index(profile.Name)
+		if idx >= 0 && hasFlagKey(flags, "no-overwrite") {
+			continue
+		}
+		if err := merged.CheckUnique(profile, idx); err != nil {
+			return restoreActive(gh, hostname, activeLogin, fmt.Errorf("account %s: %w", account.Login, err))
+		}
+		mergeProfiles(&merged, []config.Profile{profile}, false)
 		profiles = append(profiles, profile)
 	}
-	if len(profiles) == 0 {
+	if len(profiles) == 0 && !hasFlagKey(flags, "no-overwrite") {
 		return restoreActive(gh, hostname, activeLogin, fmt.Errorf("no healthy gh accounts found for host %q", hostname))
 	}
-	mergeProfiles(&cfg, profiles, hasFlagKey(flags, "no-overwrite"))
-	if err := config.Save(path, cfg); err != nil {
+	if err := config.Save(path, merged); err != nil {
 		return restoreActive(gh, hostname, activeLogin, err)
 	}
 
-	restoreErr := restoreActive(gh, hostname, activeLogin, nil)
-	if restoreErr != nil {
-		return restoreErr
+	if err := restoreActive(gh, hostname, activeLogin, nil); err != nil {
+		return fmt.Errorf("imported %d profiles, but %w", len(profiles), err)
 	}
-	_, err = fmt.Fprintf(a.out, "imported %d profiles from gh host %q\n", len(profiles), hostname)
+	return a.printf("imported %d profiles from gh host %q", len(profiles), hostname)
+}
 
-	return err
+// validateFlagValues validates the profile name (when non-empty) and every
+// value flag given on the command line; failures are usage errors.
+func validateFlagValues(command string, name string, flags map[string]string) error {
+	if name != "" {
+		if err := config.ValidateName(name, reservedNames()); err != nil {
+			return usageErrorf(command, "%v", err)
+		}
+	}
+	validators := map[string]func(string) error{
+		"gh-user":   config.ValidateLogin,
+		"git-name":  config.ValidateGitName,
+		"git-email": config.ValidateEmail,
+		"ssh-alias": config.ValidateAlias,
+		"ssh-key":   config.ValidateKeyPath,
+		"workspace": config.ValidateWorkspace,
+	}
+	for _, flag := range []string{"gh-user", "git-name", "git-email", "ssh-alias", "ssh-key", "workspace"} {
+		value, ok := flags[flag]
+		if !ok {
+			continue
+		}
+		if err := validators[flag](value); err != nil {
+			return usageErrorf(command, "--%s: %v", flag, err)
+		}
+	}
+	return nil
+}
+
+// validateGHProfile validates the values that came from the GitHub CLI or
+// were derived from it (flag values were validated already). These are not
+// usage errors: the user did not type them.
+func validateGHProfile(p config.Profile, flags map[string]string) error {
+	if err := config.ValidateLogin(p.GitHubUser); err != nil {
+		return fmt.Errorf("gh returned an unusable login: %w", err)
+	}
+	if _, ok := flags["git-name"]; !ok {
+		if err := config.ValidateGitName(p.GitName); err != nil {
+			return fmt.Errorf("gh returned an unusable git name: %w; pass --git-name", err)
+		}
+	}
+	if _, ok := flags["git-email"]; !ok && p.GitEmail != "" {
+		if err := config.ValidateEmail(p.GitEmail); err != nil {
+			return fmt.Errorf("gh returned an unusable email: %w; pass --git-email", err)
+		}
+	}
+	if _, ok := flags["ssh-alias"]; !ok {
+		if err := config.ValidateAlias(p.SSHHostAlias); err != nil {
+			return fmt.Errorf("derived %w; pass --ssh-alias", err)
+		}
+	}
+	if _, ok := flags["ssh-key"]; !ok {
+		if err := config.ValidateKeyPath(p.SSHKey); err != nil {
+			return fmt.Errorf("derived %w; pass --ssh-key", err)
+		}
+	}
+	return nil
 }
 
 // saveProfile merges profile into the loaded cfg and saves it atomically.
@@ -144,63 +226,37 @@ func profileFromGH(name string, user ghops.User, flags map[string]string) (confi
 		return config.Profile{}, fmt.Errorf("git email is required because gh did not return an email; run `gh auth refresh --scopes user:email` or pass --git-email")
 	}
 
-	safeName := safeProfilePathName(name)
+	suffix := config.SafeSuffix(name)
 	return config.Profile{
 		Name:         name,
 		GitHubUser:   user.Login,
 		GitName:      cmp.Or(flags["git-name"], user.Name, user.Login),
 		GitEmail:     gitEmail,
-		SSHHostAlias: cmp.Or(flags["ssh-alias"], "github-"+safeName),
-		SSHKey:       cmp.Or(flags["ssh-key"], "~/.ssh/id_ed25519_"+safeName),
+		SSHHostAlias: cmp.Or(flags["ssh-alias"], "github-"+suffix),
+		SSHKey:       cmp.Or(flags["ssh-key"], "~/.ssh/id_ed25519_"+suffix),
 		Workspace:    flags["workspace"],
 	}, nil
 }
 
 func activeAccountLogin(accounts []ghops.AuthAccount) string {
-	for _, account := range accounts {
-		if account.Active {
-			return account.Login
-		}
-	}
-
-	return ""
+	login, _, _ := ghops.ActiveLogin(accounts)
+	return login
 }
 
+// restoreActive switches back to activeLogin and reports both err and the
+// restore result.
 func restoreActive(gh ghops.GH, hostname string, activeLogin string, err error) error {
 	if activeLogin == "" {
 		return err
 	}
 	restoreErr := gh.SwitchUser(hostname, activeLogin)
-	if err != nil {
-		return errors.Join(err, restoreErr)
+	if err == nil {
+		if restoreErr != nil {
+			return fmt.Errorf("could not restore gh account %s: %w", activeLogin, restoreErr)
+		}
+		return nil
 	}
-
-	return restoreErr
-}
-
-func safeProfilePathName(name string) string {
-	cleaned := strings.Trim(unsafeProfilePathChars.ReplaceAllString(name, "-"), "-")
-	if cleaned == "" {
-		return "profile"
-	}
-	return strings.ToLower(cleaned)
-}
-
-func validateImportedProfile(profile config.Profile) error {
-	if profile.Name == "" || profile.GitHubUser == "" || profile.GitName == "" || profile.SSHHostAlias == "" || profile.SSHKey == "" {
-		return fmt.Errorf("profile requires name, gh-user, git-name, ssh-alias, and ssh-key")
-	}
-	return nil
-}
-
-func validateCompleteProfile(profile config.Profile) error {
-	if err := validateImportedProfile(profile); err != nil {
-		return err
-	}
-	if profile.GitEmail == "" {
-		return fmt.Errorf("profile requires git-email")
-	}
-	return nil
+	return ghops.RestoreResult(err, restoreErr, activeLogin)
 }
 
 func hasFlagKey(flags map[string]string, key string) bool {
