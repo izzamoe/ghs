@@ -29,7 +29,7 @@ func (f *fakeCtx) git(args []string) int {
 			if !g.Repo {
 				return f.notRepo()
 			}
-			fmt.Fprintln(f.stdout, g.Toplevel)
+			_, _ = fmt.Fprintln(f.stdout, g.Toplevel)
 			return 0
 		}
 	case "remote":
@@ -40,7 +40,7 @@ func (f *fakeCtx) git(args []string) int {
 			if g.Origin == "" {
 				return f.failf(2, "error: No such remote 'origin'")
 			}
-			fmt.Fprintln(f.stdout, g.Origin)
+			_, _ = fmt.Fprintln(f.stdout, g.Origin)
 			return 0
 		}
 		if len(rest) == 4 && rest[1] == "set-url" && rest[2] == "origin" {
@@ -103,7 +103,7 @@ func (f *fakeCtx) gitConfig(all, args []string, dir string) int {
 		if !ok {
 			return 1
 		}
-		fmt.Fprintf(f.stdout, "%s\t%s\t%s\n", scope, origin, value)
+		_, _ = fmt.Fprintf(f.stdout, "%s\t%s\t%s\n", scope, origin, value)
 		return 0
 
 	case getAll && global && !get && !add && !unset && !showOrigin && !showScope && len(pos) == 1:
@@ -112,7 +112,7 @@ func (f *fakeCtx) gitConfig(all, args []string, dir string) int {
 			return 1
 		}
 		for _, v := range values {
-			fmt.Fprintln(f.stdout, v)
+			_, _ = fmt.Fprintln(f.stdout, v)
 		}
 		return 0
 
@@ -255,7 +255,7 @@ func (f *fakeCtx) gitClone(url, dest string) int {
 	if err := os.WriteFile(filepath.Join(dest, ".git", "config"), []byte(content), 0o644); err != nil {
 		return f.failf(128, "fatal: %v", err)
 	}
-	fmt.Fprintf(f.stderr, "Cloning into '%s'...\n", dest)
+	_, _ = fmt.Fprintf(f.stderr, "Cloning into '%s'...\n", dest)
 	g := &f.st.Git
 	g.Repo = true
 	g.Toplevel = dest

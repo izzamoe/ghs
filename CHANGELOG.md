@@ -34,6 +34,11 @@ changes; they are marked **Breaking:** below.
 - `ghs status` resolves the active account, the Git identity (with its scope
   and `workspace` origin), and `origin` to profiles and prints a `mismatch:`
   line for every disagreement.
+- `ghs fix-remote` warns when the profile's alias has no `~/.ssh/config`
+  block yet (the rewrite still happens).
+- `ghs workspace` refuses to link a profile that is already linked to a
+  different directory until it is unlinked, so no stale `includeIf` entry is
+  left behind.
 - `ghs <command> --help` prints that command's usage.
 - MIT `LICENSE`, this changelog, CI on Linux, macOS, and Windows, and a
   tag-driven release that publishes binaries for six platform/architecture

@@ -31,7 +31,7 @@ func requireTool(name string) error {
 // currently active login ("" when none).
 func accountPreflight(gh ghops.GH, p config.Profile) (active string, err error) {
 	if p.GitHubUser == "" {
-		return "", fmt.Errorf("profile %q has no gh_user; add it with: ghs add-profile %s --gh-user <login> ...", p.Name, p.Name)
+		return "", fmt.Errorf("profile %q has no gh_user; add it again with ghs add-profile or ghs add-from-gh", p.Name)
 	}
 	if err := config.ValidateLogin(p.GitHubUser); err != nil {
 		return "", fmt.Errorf("profile %q: %w", p.Name, err)

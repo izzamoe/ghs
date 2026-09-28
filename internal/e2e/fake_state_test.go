@@ -190,12 +190,12 @@ type fakeCtx struct {
 }
 
 func (f *fakeCtx) unsupported(args []string) int {
-	fmt.Fprintf(f.stderr, "fake %s: unsupported arguments: %s\n", f.tool, strings.Join(args, " "))
+	_, _ = fmt.Fprintf(f.stderr, "fake %s: unsupported arguments: %s\n", f.tool, strings.Join(args, " "))
 	return 64
 }
 
 func (f *fakeCtx) failf(code int, format string, a ...any) int {
-	fmt.Fprintf(f.stderr, format+"\n", a...)
+	_, _ = fmt.Fprintf(f.stderr, format+"\n", a...)
 	return code
 }
 
@@ -203,12 +203,12 @@ func (f *fakeCtx) failf(code int, format string, a ...any) int {
 func runFake(tool string, args []string) int {
 	dir, _ := os.Getwd()
 	if err := appendLog(tool, args, dir); err != nil {
-		fmt.Fprintf(os.Stderr, "fake %s: log: %v\n", tool, err)
+		_, _ = fmt.Fprintf(os.Stderr, "fake %s: log: %v\n", tool, err)
 		return 70
 	}
 	st, err := loadState()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "fake %s: state: %v\n", tool, err)
+		_, _ = fmt.Fprintf(os.Stderr, "fake %s: state: %v\n", tool, err)
 		return 70
 	}
 	f := &fakeCtx{tool: tool, st: &st, dir: dir, stdout: os.Stdout, stderr: os.Stderr}
@@ -239,7 +239,7 @@ func runFake(tool string, args []string) int {
 	}
 	if f.dirty {
 		if err := saveState(st); err != nil {
-			fmt.Fprintf(os.Stderr, "fake %s: save state: %v\n", tool, err)
+			_, _ = fmt.Fprintf(os.Stderr, "fake %s: save state: %v\n", tool, err)
 			return 70
 		}
 	}

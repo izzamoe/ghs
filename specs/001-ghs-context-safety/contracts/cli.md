@@ -78,7 +78,7 @@ ghs update
 - Reads: config; `gh auth status --hostname github.com --json hosts` if `gh` is
   on `PATH`.
 - stdout (tab-aligned; first column is `*` for the active profile, otherwise
-  blank):
+  a single space so the layout is the same when no profile is active):
 
   ```
      PROFILE  GH USER     GIT EMAIL         SSH ALIAS    WORKSPACE         GH AUTH
@@ -241,6 +241,8 @@ ghs update
   ```
 
   Profile without a workspace: `profile "work" has no workspace` (exit `0`).
+  Linking a profile that is already linked to a different directory fails
+  with exit `1`: `profile "<p>" is already linked to <path>; run: ghs workspace <p> --unlink`.
 
 ### `use`
 
@@ -257,7 +259,11 @@ ghs update
   (skipped when already active), `git config [--global] user.name` then
   `user.email` (skipped when the profile has no email).
 - Rollback on failure: reverse order; `origin` set back to its previous URL;
-  account switched back; every result reported; exit `1`.
+  account switched back; every result reported on stderr
+  (`restored origin to <url>`, `restored gh account <login>`, or
+  `could not restore ...`); nothing is printed on stdout; exit `1`. When
+  `user.email` fails after `user.name` was written, stderr also notes the
+  `user.name` value and scope that remain.
 - After success (without `--fix-remote`), inside a repository: read `origin`;
   warn on stderr:
   - `ghs: warning: origin <url> still uses github.com; pushes will not use the key of profile "<p>"; run: ghs use <p> --fix-remote  or  ghs fix-remote <p>`
@@ -284,7 +290,16 @@ ghs update
   generation if missing, SSH config append if missing, `gh ssh-key add` with
   `--upload-key`, `git clone`, `git -C <dir> config user.name/user.email` when
   the profile has an email.
-- stdout unchanged from the current release.
+- stdout, in order, each only when it happened (constitution Principle I:
+  every mutation is named), then the existing final line:
+
+  ```
+  switched gh account: zamyb -> zamyb-work
+  generated ssh key /home/u/.ssh/id_ed25519_work
+  appended Host github-work to /home/u/.ssh/config
+  uploaded public key /home/u/.ssh/id_ed25519_work.pub to account zamyb-work
+  cloned git@github-work:acme/app.git into app and set local git identity for profile "work"
+  ```
 
 ### `init-ssh`
 
@@ -296,8 +311,9 @@ ghs update
   quoting per FR-015); with `--upload`: switch to `gh_user` if not active,
   `gh ssh-key add <key>.pub --title ghs-<p>`, switch back; "already present"
   is success.
-- stdout: `ssh is ready for profile "<p>" via host "<alias>"` and, after upload,
-  `uploaded public key <path>.pub to account <gh_user>` or
+- stdout: `generated ssh key <path>` and `appended Host <alias> to <ssh config>`
+  when those happened, then `ssh is ready for profile "<p>" via host "<alias>"`
+  and, after upload, `uploaded public key <path>.pub to account <gh_user>` or
   `public key <path>.pub already registered on account <gh_user>`.
 
 ### `fix-remote`

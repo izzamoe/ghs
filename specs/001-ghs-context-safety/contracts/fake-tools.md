@@ -16,6 +16,8 @@ the test loudly.
 | `GHS_FAKE_LOG` | sandbox | path of the JSON-lines invocation log (append-only) |
 | `HOME`, `USERPROFILE`, `XDG_CONFIG_HOME` | sandbox | isolated directories |
 | `PATH` | sandbox | the sandbox `bin` directory only |
+| `GORACE` | sandbox | `atexit_sleep_ms=0`, so the race-built fakes do not sleep one second on exit (affects only race-built binaries) |
+| `SYSTEMROOT`, `TEMP`, `TMP` | sandbox (Windows only) | `TEMP`/`TMP` point inside the sandbox |
 
 ## Invocation log
 
@@ -25,7 +27,9 @@ Every call appends one line before doing anything else:
 {"tool":"gh","args":["auth","switch","--hostname","github.com","--user","zamyb-work"],"dir":"/tmp/sandbox/repo"}
 ```
 
-`dir` is the working directory of the call. Tests use helpers `calls()`,
+`dir` is the working directory of the call. An `env` field lists the
+*names* (never values) of the environment variables the fake saw, so the
+isolation tests can prove the environment is minimal. Tests use helpers `calls()`,
 `callsOf(tool)`, `assertSequence(...)`, and `assertNoMutations()`.
 
 **Mutating operations** (for `assertNoMutations`, FR-068, FR-078, FR-063):
@@ -81,7 +85,7 @@ a match exits `1` with `fake <tool>: forced failure (<pattern>)` on stderr.
 
 | Invocation | Behavior |
 |------------|----------|
-| `auth status --hostname github.com --json hosts` | prints `{"hosts":{"github.com":[<accounts>]}}`; exits `1` with `You are not logged into any GitHub hosts` when `accounts` is empty |
+| `auth status --hostname github.com --json hosts` | prints `{"hosts":{"github.com":[<accounts>]}}`; exits `1` with `You are not logged into any GitHub hosts` when `accounts` is empty; an account may carry `"host"` (default `github.com`), and when no account is for github.com it prints `{"hosts":{}}` |
 | `auth status --hostname <other>` | prints `{"hosts":{}}` |
 | `auth switch --hostname github.com --user <login>` | sets `active` on that account (must exist with state `success`, else exit `1` `could not switch`); persists state |
 | `api user` | prints the `users[<active login>]` object (`id`, `login`, `name`, `email`); exit `1` if no active account |

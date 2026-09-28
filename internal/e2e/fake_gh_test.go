@@ -34,7 +34,7 @@ func (f *fakeCtx) gh(args []string) int {
 			hosts[host] = append(hosts[host], jsonAccount{State: a.State, Active: a.Active, Host: host, Login: a.Login})
 		}
 		data, _ := json.Marshal(map[string]any{"hosts": hosts})
-		fmt.Fprintln(f.stdout, string(data))
+		_, _ = fmt.Fprintln(f.stdout, string(data))
 		return 0
 
 	case len(args) == 6 && args[0] == "auth" && args[1] == "switch" && args[2] == "--hostname" && args[3] == "github.com" && args[4] == "--user":
@@ -51,7 +51,7 @@ func (f *fakeCtx) gh(args []string) int {
 			}
 		}
 		f.dirty = true
-		fmt.Fprintf(f.stdout, "✓ Switched active account for github.com to %s\n", login)
+		_, _ = fmt.Fprintf(f.stdout, "✓ Switched active account for github.com to %s\n", login)
 		return 0
 
 	case len(args) == 2 && args[0] == "api" && args[1] == "user":
@@ -64,7 +64,7 @@ func (f *fakeCtx) gh(args []string) int {
 			u.Login = login
 		}
 		data, _ := json.Marshal(map[string]any{"id": u.ID, "login": u.Login, "name": u.Name, "email": u.Email})
-		fmt.Fprintln(f.stdout, string(data))
+		_, _ = fmt.Fprintln(f.stdout, string(data))
 		return 0
 
 	case len(args) == 2 && args[0] == "api" && args[1] == "user/emails":
@@ -77,7 +77,7 @@ func (f *fakeCtx) gh(args []string) int {
 			emails = []ghEmail{}
 		}
 		data, _ := json.Marshal(emails)
-		fmt.Fprintln(f.stdout, string(data))
+		_, _ = fmt.Fprintln(f.stdout, string(data))
 		return 0
 
 	case len(args) == 5 && args[0] == "ssh-key" && args[1] == "add" && args[3] == "--title":
@@ -97,7 +97,7 @@ func (f *fakeCtx) gh(args []string) int {
 		for _, existing := range gh.SSHKeys[login] {
 			ef := strings.Fields(existing)
 			if len(ef) >= 2 && ef[0]+" "+ef[1] == key {
-				fmt.Fprintln(f.stdout, "✓ Public key already exists on your account")
+				_, _ = fmt.Fprintln(f.stdout, "✓ Public key already exists on your account")
 				return 0
 			}
 		}
@@ -106,7 +106,7 @@ func (f *fakeCtx) gh(args []string) int {
 		}
 		gh.SSHKeys[login] = append(gh.SSHKeys[login], strings.TrimSpace(string(data)))
 		f.dirty = true
-		fmt.Fprintln(f.stdout, "✓ Public key added to your account")
+		_, _ = fmt.Fprintln(f.stdout, "✓ Public key added to your account")
 		return 0
 
 	case len(args) >= 2 && args[0] == "auth" && args[1] == "logout":

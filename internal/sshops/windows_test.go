@@ -1,6 +1,7 @@
 package sshops
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -46,4 +47,37 @@ func TestHasHostBlockCRLF(t *testing.T) {
 
 func buildSSHBlock(alias, keyPath string) string {
 	return "\nHost " + alias + "\n  HostName github.com\n  User git\n  IdentityFile " + keyPath + "\n  IdentitiesOnly yes\n"
+}
+
+// A Windows home such as C:\Users\John Doe produces key paths with spaces;
+// the IdentityFile must then be quoted (and forward-slashed on Windows).
+func TestEnsureConfigQuotesWindowsPathWithSpace(t *testing.T) {
+	t.Parallel()
+
+	key := `C:\Users\John Doe\.ssh\id_ed25519_work`
+	cfg := filepath.Join(t.TempDir(), "config")
+	if _, err := EnsureConfigAt(cfg, "github-work", key); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `  IdentityFile "` + filepath.ToSlash(key) + `"` + "\n"
+	if !strings.Contains(string(data), want) {
+		t.Fatalf("config:\n%s\nwant line %q", data, want)
+	}
+	if block := ParseHostBlock(string(data), "github-work"); block.IdentityFile != filepath.ToSlash(key) {
+		t.Fatalf("parsed IdentityFile = %q", block.IdentityFile)
+	}
+}
+
+func TestParseHostBlockCRLF(t *testing.T) {
+	t.Parallel()
+
+	content := "Host github-work\r\n  HostName github.com\r\n  User git\r\n  IdentityFile \"C:/Users/x y/.ssh/id\"\r\n  IdentitiesOnly yes\r\n"
+	block := ParseHostBlock(content, "github-work")
+	if !block.Found || block.User != "git" || block.IdentityFile != "C:/Users/x y/.ssh/id" || block.IdentitiesOnly != "yes" {
+		t.Fatalf("block = %+v", block)
+	}
 }
