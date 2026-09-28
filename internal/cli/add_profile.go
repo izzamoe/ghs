@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"strings"
 
 	"github.com/izzamoe/ghs/internal/config"
 	"github.com/izzamoe/ghs/internal/ghops"
@@ -64,14 +65,16 @@ func (a App) addFromGH(pos []string, flags map[string]string) error {
 }
 
 func (a App) importAll(flags map[string]string) error {
-	if err := validateFlagValues("import-all", "", flags); err != nil {
-		return err
+	// Only github.com is supported end to end; any other host is refused
+	// before the GitHub CLI is called (FR-033).
+	if h, ok := flags["hostname"]; ok && !strings.EqualFold(h, githubHost) {
+		return usageErrorf("import-all", "only github.com is supported; got --hostname %q", h)
 	}
+	hostname := githubHost
 	path, cfg, err := a.loadConfig()
 	if err != nil {
 		return err
 	}
-	hostname := cmp.Or(flags["hostname"], "github.com")
 	gh := ghops.New(runner.New())
 	accounts, err := gh.AuthAccounts(hostname)
 	if err != nil {
