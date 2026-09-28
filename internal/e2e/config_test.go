@@ -20,6 +20,7 @@ func TestConfig_InvalidLineStopsEveryWriter(t *testing.T) {
 		{"set-email", []string{"set-email", "work", "x@example.com"}},
 		{"workspace", []string{"workspace", "work", "~/Documents/work"}},
 		{"workspace --unlink", []string{"workspace", "work", "--unlink"}},
+		{"remove", []string{"remove", "work"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

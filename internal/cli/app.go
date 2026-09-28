@@ -200,6 +200,8 @@ func (a App) Run(args []string) error {
 		return a.fixRemote(pos)
 	case "workspace":
 		return a.workspace(pos, flags)
+	case "remove":
+		return a.remove(pos)
 	case "version":
 		return a.printVersion()
 	case "update":
