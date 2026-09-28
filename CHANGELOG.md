@@ -9,6 +9,15 @@ changes; they are marked **Breaking:** below.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-28
+
+### Fixed
+
+- Publish the account-context safety release after the initial `v0.5.0` tag
+  could not generate notes because its changelog section was absent.
+
+## [0.5.0] - 2026-09-28
+
 ### Added
 
 - `ghs remove <profile>` deletes one profile from the config without touching
