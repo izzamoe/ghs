@@ -34,10 +34,10 @@ func (a App) clone(pos []string, flags map[string]string) error {
 		return err
 	}
 	ssh := sshops.New(run)
-	if err := ssh.EnsureKey(profile); err != nil {
+	if _, _, err := ssh.EnsureKey(profile); err != nil {
 		return err
 	}
-	if err := ssh.EnsureConfig(profile); err != nil {
+	if _, _, err := sshops.EnsureConfig(profile); err != nil {
 		return err
 	}
 	if hasFlagKey(flags, "upload-key") {
