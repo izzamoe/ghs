@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a change, or ask about intended behavior.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ghs is deliberately small: github.com only, standard library only, and every change must be testable with the hermetic suite.
+        Do not paste private keys, tokens, or full config files.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The command, flag, or behavior you would like, with an example.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other designs you thought about.
+    validations:
+      required: false
