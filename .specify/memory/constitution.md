@@ -1,22 +1,22 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0
-- Modified principles:
-  - I. User State Is Never Lost — added: temporary account switches must be restored;
-    files not owned by ghs are read-modify-append only; every mutation names its target.
-  - III. Explicit CLI Contract — added: flags are position-independent but a flag that
-    takes a value MUST receive one; the same flag MUST NOT be accepted twice.
-  - IV. Simplicity and Standard Library First — added: a host other than github.com is a
-    usage error until per-host support exists end-to-end; stored-but-unused config keys
-    are removed rather than kept.
-- Added sections: none
+- Version change: 1.1.0 → 1.2.0
+- Modified principles: none reworded. Principle III gains one bullet: README reproduces
+  each command's `--help` text verbatim, enforced by a test.
+- Added sections:
+  - VI. Honest, Drift-Free Public Documentation (new principle: no invented install
+    channels, websites, contacts, funding, or guarantees; every documented claim that
+    can be checked mechanically is checked by a test; community health files are
+    reviewed like code; admin-only repository metadata changes are recorded as
+    maintainer actions with exact commands, never assumed done).
 - Removed sections: none
 - Templates checked:
   - .specify/templates/plan-template.md ✅ Constitution Check gate section is generic and compatible
   - .specify/templates/spec-template.md ✅ no principle-specific placeholders required
-  - .specify/templates/tasks-template.md ✅ test-first ordering matches Principle II
+  - .specify/templates/tasks-template.md ✅ test-first ordering matches Principles II and VI
   - .specify/templates/checklist-template.md ✅ no change required
 - Follow-up TODOs: none
+- Previous report (1.0.0 → 1.1.0) is preserved in git history.
 -->
 
 # ghs Constitution
@@ -68,6 +68,8 @@ tests alone cannot catch, and contributors must be able to run the full suite an
 
 - Every command documents its positional arguments and flags in `ghs --help` and in
   `README.md`; the two MUST agree with the implementation.
+- `README.md` MUST reproduce each command's `ghs <command> --help` output verbatim
+  (usage line plus flag help), and a test MUST fail when they differ.
 - Unknown flags, unknown commands, missing required values, and surplus positional
   arguments MUST be rejected with a usage error and a non-zero exit code. Nothing is
   silently ignored.
@@ -118,6 +120,39 @@ maintenance cost for a single maintainer and a security surface for every user.
 Rationale: users install this tool with `go install @latest` and `ghs update`; a broken
 or undocumented release reaches them immediately.
 
+### VI. Honest, Drift-Free Public Documentation
+
+`ghs` is installed by strangers who read `README.md` before they trust it with their
+credentials. Public documentation therefore follows the same rules as code:
+
+- Documentation MUST NOT name an install channel (package manager, tap, bucket,
+  distribution package), a project website, a security or support contact, a funding
+  account, or a guarantee (support window, response time, compatibility promise) that
+  does not exist or was not verified at the time of writing. "Not available" is stated
+  explicitly where a reader would expect a channel.
+- Every documented claim that can be checked mechanically MUST be checked by a test
+  that runs in `go test ./...` without network access: command list and per-command
+  help text, Go version, module path, release asset names, config file location,
+  `make` targets, changelog section link references, the existence and required
+  content of community health files, and the targets of relative links.
+- Absolute links in documentation MUST point at hosts on an explicit allowlist kept
+  next to the test that enforces it; adding a host is a reviewed change.
+- Community health files (`CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`,
+  `SUPPORT.md`, issue and pull request templates) are part of the repository, are
+  changed through pull requests, and MUST agree with `README.md`, the `Makefile`, and
+  the CI workflow.
+- Repository metadata that only an administrator can change (description, homepage,
+  topics, feature toggles, security settings, social preview, release notes edits) is
+  never assumed to be done by a pull request: the feature's `tasks.md` records each
+  such change as a maintainer action with the exact command or UI path and a read-only
+  verification command.
+- Troubleshooting documentation MUST describe how to undo every mutation `ghs` can
+  make, by hand, using only `gh`, `git`, and a text editor, so a user can recover even
+  when `ghs` itself cannot run.
+
+Rationale: an invented Homebrew formula, a dead security email, or a stale flag table
+costs a first-time user their trust in a tool that switches their identity.
+
 ## Additional Constraints
 
 - **Language/toolchain**: Go, version pinned by `go.mod`; no cgo.
@@ -145,7 +180,8 @@ or undocumented release reaches them immediately.
 - Every task in `tasks.md` names the exact files it touches and, for behavior changes,
   the test that must fail first.
 - Reviewers verify compliance with Principles I–III explicitly for any change that
-  mutates user state or parses user input.
+  mutates user state or parses user input, and with Principle VI for any change to
+  `README.md`, help text, community health files, or release configuration.
 
 ## Governance
 
@@ -158,4 +194,4 @@ or undocumented release reaches them immediately.
 - Compliance review: `/speckit-plan` records a Constitution Check for every feature;
   `/speckit-analyze` treats any violation of a MUST statement as CRITICAL.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-28 | **Last Amended**: 2026-09-28
+**Version**: 1.2.0 | **Ratified**: 2026-09-28 | **Last Amended**: 2026-09-29

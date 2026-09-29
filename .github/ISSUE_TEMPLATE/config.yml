@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/izzamoe/ghs/blob/main/README.md#troubleshooting
+    about: Symptoms, causes, fixes, and how to undo every change ghs makes by hand.
+  - name: Support and what to include
+    url: https://github.com/izzamoe/ghs/blob/main/SUPPORT.md
+    about: Self-help steps (ghs doctor --offline, ghs status) and how to ask a good question.
+  - name: Report a security vulnerability
+    url: https://github.com/izzamoe/ghs/blob/main/SECURITY.md
+    about: Please report security problems privately, as described in SECURITY.md.

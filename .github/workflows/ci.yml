@@ -37,8 +37,9 @@ jobs:
       - name: go vet
         run: go vet ./...
 
-      # Runs every package, including internal/cli (TestReadmeGoVersionMatchesGoMod,
-      # TestReadmeCommandListMatchesHelp) and the hermetic end-to-end suite in
-      # internal/e2e, which uses fake gh/git/ssh/ssh-keygen and needs no network.
+      # Runs every package, including the documentation drift tests
+      # (internal/cli/docs_test.go, community_test.go, links_test.go, and
+      # internal/tools/changelog/main_test.go) and the hermetic end-to-end suite
+      # in internal/e2e, which uses fake gh/git/ssh/ssh-keygen and needs no network.
       - name: go test -race
         run: go test -race -count=1 ./...

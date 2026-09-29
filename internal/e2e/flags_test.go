@@ -244,3 +244,41 @@ func TestFlags_RuntimeFailureExit1(t *testing.T) {
 	assertCode(t, res, 1)
 	assertContains(t, res.Stderr, `did you mean "work"?`)
 }
+
+func TestFlags_HelpCommandPerCommand(t *testing.T) {
+	t.Parallel()
+	for _, c := range cliCommands {
+		sb := newSandbox(t)
+		viaHelp := sb.run("help", c.name)
+		viaFlag := sb.run(c.name, "--help")
+		assertCode(t, viaHelp, 0)
+		if viaHelp.Stdout != viaFlag.Stdout || !strings.HasPrefix(viaHelp.Stdout, "ghs "+c.name) {
+			t.Fatalf("ghs help %s stdout = %q, want ghs %s --help stdout %q", c.name, viaHelp.Stdout, c.name, viaFlag.Stdout)
+		}
+		if viaHelp.Stderr != "" || len(sb.calls()) != 0 {
+			t.Fatalf("help %s: stderr %q, %d tool calls", c.name, viaHelp.Stderr, len(sb.calls()))
+		}
+	}
+	sb := newSandbox(t)
+	res := sb.run("help")
+	assertCode(t, res, 0)
+	if !strings.HasSuffix(res.Stdout, "\nDocs: https://github.com/izzamoe/ghs#readme\n") {
+		t.Fatalf("general help does not end with the Docs line:\n%s", res.Stdout)
+	}
+}
+
+func TestFlags_HelpUnknownTopicExit2(t *testing.T) {
+	t.Parallel()
+	sb := newSandbox(t)
+	res := sb.run("help", "nosuch")
+	assertUsageError(t, sb, res, `unknown command "nosuch"`)
+	if !strings.HasPrefix(res.Stderr, `ghs: unknown command "nosuch"`) {
+		t.Fatalf("stderr = %q", res.Stderr)
+	}
+	assertContains(t, res.Stderr, "ghs add-profile <name>")
+
+	sb = newSandbox(t)
+	res = sb.run("help", "use", "--global")
+	assertUsageError(t, sb, res, `unexpected argument "--global"`)
+	assertContains(t, res.Stderr, "ghs add-profile <name>")
+}

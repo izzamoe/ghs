@@ -157,6 +157,14 @@ func (a App) printf(format string, args ...any) error {
 }
 
 func (a App) Run(args []string) error {
+	// "ghs help <command>" is "ghs <command> --help"; an unknown topic is the
+	// unknown-command usage error, and "help help" is the general help.
+	if len(args) > 1 && args[0] == "help" {
+		if len(args) > 2 {
+			return usageErrorf("help", "unexpected argument %q", args[2])
+		}
+		args = []string{args[1], "--help"}
+	}
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		return a.printHelp()
 	}
@@ -221,6 +229,7 @@ Config: $XDG_CONFIG_HOME/ghs/config.conf, or ~/.config/ghs/config.conf
 Only github.com is supported.
 Do not run ghs with sudo.
 Exit codes: 0 success, 1 failure, 2 usage error.
+Docs: https://github.com/izzamoe/ghs#readme
 `)
 	_, err := fmt.Fprint(a.out, b.String())
 	return err

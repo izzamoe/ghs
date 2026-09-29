@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <!-- Source of the repository social preview (upload a 1280x640 PNG export in
+       Settings > General > Social preview; there is no API). Text only: no
+       external fonts, images, or links. -->
+  <rect width="1280" height="640" fill="#f6f8fa"/>
+  <rect x="0" y="0" width="1280" height="16" fill="#24292f"/>
+  <text x="96" y="260" font-family="sans-serif" font-size="160" font-weight="700" fill="#24292f">ghs</text>
+  <text x="96" y="350" font-family="sans-serif" font-size="44" fill="#24292f">Switch GitHub work/personal context safely</text>
+  <text x="96" y="420" font-family="sans-serif" font-size="32" fill="#57606a">GitHub CLI account · Git identity · SSH alias · origin remote</text>
+  <text x="96" y="540" font-family="sans-serif" font-size="32" fill="#57606a">github.com/izzamoe/ghs · MIT · github.com only</text>
+</svg>
