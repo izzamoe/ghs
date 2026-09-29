@@ -1,9 +1,7 @@
 # Contributing to ghs
 
 Thanks for helping. `ghs` switches identities and writes files that people
-rely on every day, so the rules below are strict on purpose. The project
-constitution in [.specify/memory/constitution.md](.specify/memory/constitution.md)
-is the authority; this file is the practical summary.
+rely on every day, so the rules below are strict on purpose.
 
 `ghs` has one maintainer ([@izzamoe](https://github.com/izzamoe)). Reviews are
 best effort.
@@ -74,24 +72,14 @@ it pass (Red, Green, Refactor). For a defect, the pull request should contain
 a test that fails without the fix. Documentation claims that can be checked
 mechanically are tests too; see "Documentation drift tests" below.
 
-## Non-trivial changes use Spec Kit
+## Non-trivial changes start with a short design note
 
-Changes that touch more than one command, alter user-visible behavior, or
-restructure documentation go through the Spec Kit sequence in
-`specs/<NNN-name>/`: `spec.md`, then `plan.md` (with `research.md`,
-`data-model.md`, `contracts/`, `quickstart.md`), then `tasks.md`, then the
-implementation. See `specs/001-ghs-context-safety/` and
-`specs/002-public-discoverability/` for examples.
-
-The Spec Kit scripts find the feature from the branch name when it looks like
-`NNN-name`. When your branch is named differently (for example
-`docs/public-discoverability`), point them at the directory explicitly:
-
-```bash
-SPECIFY_FEATURE_DIRECTORY=specs/002-public-discoverability .specify/scripts/bash/check-prerequisites.sh --json
-```
-
-This writes the machine-local, git-ignored `.specify/feature.json`.
+For a change that touches more than one command, alters user-visible
+behavior, or restructures documentation, describe the problem, the proposed
+behavior, and the plan for tests in the pull request description (or a linked
+issue) before writing code. There is no required template file for this; the
+failing-test rule above and the pull request template are the only
+enforced gates.
 
 ## Changelog
 
@@ -158,7 +146,7 @@ these, say plainly that it does not exist.
   asks for `make check`, the failing test, the changelog line, README and help
   updates, and confirmation that no runtime dependency was added.
 - `ghs` uses the standard library only. A new third-party runtime dependency
-  needs a recorded justification in a feature's `research.md`.
+  needs a recorded justification in the pull request description.
 - Security problems are never discussed in public issues or pull requests;
   see [SECURITY.md](SECURITY.md).
 - Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).

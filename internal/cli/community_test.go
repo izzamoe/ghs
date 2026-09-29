@@ -40,7 +40,7 @@ var communityFiles = []struct {
 		path: "CONTRIBUTING.md",
 		require: []string{
 			"make check", "gofmt -l", "go vet ./...", "go test -race", "make e2e", "internal/e2e",
-			"hermetic", "failing test", "specs/", "SPECIFY_FEATURE_DIRECTORY=", "CHANGELOG.md",
+			"hermetic", "failing test", "CHANGELOG.md",
 			"## Maintainer runbook", "gh repo edit", "private-vulnerability-reporting", "gh release edit",
 			"gh release view", "--json body", "maintainer-only",
 		},
