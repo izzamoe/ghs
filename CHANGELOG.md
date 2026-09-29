@@ -15,8 +15,8 @@ changes; they are marked **Breaking:** below.
   `ghs <command> --help`; `ghs help <unknown>` is the unknown-command usage
   error (exit code `2`) instead of silently printing the general help.
 - `ghs --help` ends with a `Docs:` line pointing at the README.
-- `CONTRIBUTING.md` (gates, hermetic test suite, Spec Kit workflow, maintainer
-  release and repository-settings runbook), `SECURITY.md` (private reporting
+- `CONTRIBUTING.md` (gates, hermetic test suite, maintainer release and
+  repository-settings runbook), `SECURITY.md` (private reporting
   through GitHub, no email, no bug bounty), `SUPPORT.md`,
   `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), bug and feature issue
   forms, a pull request template, Dependabot updates for GitHub Actions, and
