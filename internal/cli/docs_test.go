@@ -129,6 +129,209 @@ func TestHelpListsEveryRegisteredCommand(t *testing.T) {
 	}
 }
 
+// readmeSection returns the README text after the exact heading line, up to
+// the next heading of the same or a higher level outside fenced blocks.
+func readmeSection(t *testing.T, heading string) string {
+	t.Helper()
+	level := strings.Index(heading, " ")
+	var b strings.Builder
+	found, inFence := false, false
+	for line := range strings.SplitSeq(readRepoFile(t, "README.md"), "\n") {
+		if strings.HasPrefix(line, "```") {
+			inFence = !inFence
+		}
+		if !found {
+			found = !inFence && line == heading
+			continue
+		}
+		if n := len(line) - len(strings.TrimLeft(line, "#")); !inFence && n > 0 && n <= level && strings.HasPrefix(line[n:], " ") {
+			break
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	if !found {
+		t.Fatalf("README.md has no %q heading", heading)
+	}
+	return b.String()
+}
+
+func TestReadmeInstallUsesModulePath(t *testing.T) {
+	t.Parallel()
+	mod := regexp.MustCompile(`(?m)^module (\S+)$`).FindStringSubmatch(readRepoFile(t, "go.mod"))
+	if mod == nil {
+		t.Fatal("go.mod has no module line")
+	}
+	want := "go install " + mod[1] + "/cmd/ghs@latest"
+	if !strings.Contains(readmeSection(t, "### Option A: Go toolchain"), want) {
+		t.Fatalf("README Option A does not contain %q", want)
+	}
+}
+
+// goreleaserArchives renders the archive names .goreleaser.yaml produces,
+// with <version>, <os>, and <arch> placeholders, plus every os_arch pair.
+func goreleaserArchives(t *testing.T) (patterns []string, pairs []string, checksums string) {
+	t.Helper()
+	cfg := readRepoFile(t, ".goreleaser.yaml")
+	list := func(re string) []string {
+		m := regexp.MustCompile(re).FindStringSubmatch(cfg)
+		if m == nil {
+			t.Fatalf(".goreleaser.yaml: no match for %s", re)
+		}
+		var items []string
+		for item := range strings.SplitSeq(m[1], ",") {
+			items = append(items, strings.TrimSpace(item))
+		}
+		return items
+	}
+	goos := list(`(?m)^\s+goos: \[(.*)\]`)
+	goarch := list(`(?m)^\s+goarch: \[(.*)\]`)
+	formats := list(`(?m)^    formats: \[(.*)\]`)
+	project := regexp.MustCompile(`(?m)^project_name: (\S+)$`).FindStringSubmatch(cfg)
+	archive := regexp.MustCompile(`(?m)^    name_template: "(.*)"$`).FindStringSubmatch(cfg)
+	sums := regexp.MustCompile(`(?ms)^checksum:\s*\n\s+name_template: (\S+)$`).FindStringSubmatch(cfg)
+	if project == nil || archive == nil || sums == nil {
+		t.Fatal(".goreleaser.yaml: project_name, archive name_template, or checksum name_template not found")
+	}
+	windows := regexp.MustCompile(`(?m)- goos: windows\s*\n\s+formats: \[(.*)\]`).FindStringSubmatch(cfg)
+
+	name := strings.NewReplacer(
+		"{{ .ProjectName }}", project[1],
+		"{{ .Version }}", "<version>",
+		"{{ .Os }}", "<os>",
+		"{{ .Arch }}", "<arch>",
+	).Replace(archive[1])
+	if strings.Contains(name, "{{") {
+		t.Fatalf("archive name_template %q uses a field this test does not know", archive[1])
+	}
+	for _, f := range formats {
+		patterns = append(patterns, name+"."+f)
+	}
+	if windows != nil {
+		patterns = append(patterns, strings.Replace(name, "<os>", "windows", 1)+"."+strings.TrimSpace(windows[1]))
+	}
+	for _, o := range goos {
+		for _, a := range goarch {
+			pairs = append(pairs, o+"_"+a)
+		}
+	}
+	return patterns, pairs, sums[1]
+}
+
+func TestReadmeReleaseArchivesMatchGoreleaser(t *testing.T) {
+	t.Parallel()
+	section := readmeSection(t, "### Option B: Release archive")
+	patterns, pairs, checksums := goreleaserArchives(t)
+	for _, want := range append(append(patterns, pairs...), checksums) {
+		if !strings.Contains(section, want) {
+			t.Errorf("README Option B does not mention %q (from .goreleaser.yaml)", want)
+		}
+	}
+	for _, want := range []string{"sha256sum --check --ignore-missing", "shasum -a 256", "Get-FileHash"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("README Option B does not give the checksum command %q", want)
+		}
+	}
+	install := readmeSection(t, "## Install")
+	if !strings.Contains(install, "ghs is not distributed through Homebrew, Scoop, winget, apt, or the AUR; the two options above are the only supported install paths.") {
+		t.Error("README Install does not state that no package-manager distribution exists")
+	}
+}
+
+// maintainerIdentity is the maintainer's real login and name; README
+// examples use neutral placeholders instead (FR-018).
+var maintainerIdentity = []string{"zamyb", "IZZAMUDDIN", "Izzam <", "Izzamuddin", "Royhul"}
+
+func TestReadmeUsesNeutralExamples(t *testing.T) {
+	t.Parallel()
+	readme := readRepoFile(t, "README.md")
+	for _, unwanted := range maintainerIdentity {
+		if strings.Contains(readme, unwanted) {
+			t.Errorf("README.md contains %q; use alice/alice-work/Alice Example", unwanted)
+		}
+	}
+}
+
+// readmeHeadings is the README outline, in order, from
+// specs/002-public-discoverability/contracts/docs.md §2.1.
+var readmeHeadings = []string{
+	"# ghs",
+	"## Contents",
+	"## What ghs does",
+	"## Install",
+	"### Requirements",
+	"### Option A: Go toolchain",
+	"### Option B: Release archive",
+	"### Verify the install",
+	"### Do not use sudo",
+	"### Updating",
+	"### Uninstall",
+	"## First run",
+	"## Commands",
+	"### Exit codes",
+	"### Flag rules",
+	"## Command reference",
+	"## Profiles",
+	"## Switching: `use`",
+	"## Workspaces",
+	"## Seeing where you are: `list`, `status`, `doctor`",
+	"## Remotes and cloning",
+	"## Removing a profile",
+	"## Troubleshooting",
+	"### Symptoms and fixes",
+	"### What ghs changes and how to undo it",
+	"## Config and data",
+	"### Files ghs writes",
+	"### Files ghs reads",
+	"### Network access",
+	"### What ghs never does",
+	"### Config file format",
+	"## Cross-platform notes",
+	"### Linux",
+	"### macOS",
+	"### Windows",
+	"## Contributing",
+	"## Security",
+	"## Support",
+	"## License",
+}
+
+func TestReadmeSectionOrder(t *testing.T) {
+	t.Parallel()
+	lines := strings.Split(stripFences(readRepoFile(t, "README.md")), "\n")
+	var level12 []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "# ") || strings.HasPrefix(line, "## ") {
+			level12 = append(level12, line)
+		}
+	}
+	pos := 0
+	for _, heading := range readmeHeadings {
+		i := slices.Index(lines[pos:], heading)
+		if i < 0 {
+			t.Fatalf("README.md heading %q is missing or out of order (expected after line %d of the outline)", heading, pos)
+		}
+		pos += i + 1
+	}
+	var want []string
+	for _, h := range readmeHeadings {
+		if !strings.HasPrefix(h, "### ") {
+			want = append(want, h)
+		}
+	}
+	if !slices.Equal(level12, want) {
+		t.Fatalf("README.md level-1/2 headings differ from the contract.\ngot:\n%s\nwant:\n%s", strings.Join(level12, "\n"), strings.Join(want, "\n"))
+	}
+	// Contents links every level-2 heading.
+	contents := readmeSection(t, "## Contents")
+	for _, h := range want[2:] {
+		link := "](#" + headingAnchor(strings.TrimPrefix(h, "## ")) + ")"
+		if !strings.Contains(contents, link) {
+			t.Errorf("README Contents has no link %q for %q", link, h)
+		}
+	}
+}
+
 func TestHelpCommandAliasMatchesFlag(t *testing.T) {
 	t.Parallel()
 	for _, spec := range commands {
@@ -191,5 +394,79 @@ func TestHelpFooterHasDocsLine(t *testing.T) {
 	t.Parallel()
 	if help := helpOutput(t); !strings.HasSuffix(help, "Exit codes: 0 success, 1 failure, 2 usage error.\nDocs: "+docsURL+"\n") {
 		t.Fatalf("help does not end with the Docs line:\n%s", help)
+	}
+}
+
+func TestReadmeCommandReferenceMatchesHelp(t *testing.T) {
+	t.Parallel()
+	section := readmeSection(t, "## Command reference")
+	pos := 0
+	for _, spec := range commands {
+		heading := "### `ghs " + spec.Name + "`\n"
+		block := "```\n" + spec.usageText() + "```\n"
+		i := strings.Index(section[pos:], heading+"\n"+block)
+		if i < 0 {
+			t.Fatalf("README Command reference lacks, in command-table order, the block for %s. Expected:\n%s\n%s", spec.Name, heading, block)
+		}
+		pos += i + len(heading) + len(block)
+	}
+}
+
+func TestReadmeMatchesHelpFooter(t *testing.T) {
+	t.Parallel()
+	help := helpOutput(t)
+	config := regexp.MustCompile(`(?m)^Config: (\S+), or (\S+)$`).FindStringSubmatch(help)
+	docs := regexp.MustCompile(`(?m)^Docs: (\S+)$`).FindStringSubmatch(help)
+	if config == nil || docs == nil {
+		t.Fatalf("help lacks the Config: or Docs: line:\n%s", help)
+	}
+	readme := readRepoFile(t, "README.md")
+	for _, want := range []string{config[1], config[2], docs[1]} {
+		if !strings.Contains(readme, want) {
+			t.Errorf("README.md does not contain %q from ghs --help", want)
+		}
+	}
+	data := readmeSection(t, "## Config and data")
+	for _, want := range []string{config[1], config[2]} {
+		if !strings.Contains(data, want) {
+			t.Errorf("README Config and data does not contain %q", want)
+		}
+	}
+}
+
+// doctorCheckNames are the six doctor checks, in output order; the e2e
+// doctor tests pin the same names.
+var doctorCheckNames = []string{"gh", "git identity", "origin", "ssh config", "ssh auth", "workspace"}
+
+func TestReadmeTroubleshootingCoversDoctorChecks(t *testing.T) {
+	t.Parallel()
+	section := readmeSection(t, "## Troubleshooting")
+	var want []string
+	for _, name := range doctorCheckNames {
+		want = append(want, "`"+name+"`")
+	}
+	for _, outcome := range []string{outcomeOK, outcomeWarn, outcomeFail, outcomeSkip} {
+		want = append(want, "`"+outcome+"`")
+	}
+	want = append(want,
+		// symptoms (contracts/docs.md §2.5)
+		"Permission denied (publickey)", "Host key verification failed", "restored origin to",
+		"restored gh account", "could not restore", "did you mean", "has no email",
+		"is not logged in for github.com", "is not a GitHub remote", "not available for local builds",
+		"sudo", "OpenSSH Client",
+		// manual undo commands (contracts/docs.md §2.6)
+		"gh auth switch --user", "git remote set-url origin", "git config --global --unset --fixed-value",
+		"gh ssh-key delete", "git commit --amend --reset-author", "ssh -T git@",
+	)
+	for _, w := range want {
+		if !strings.Contains(section, w) {
+			t.Errorf("README Troubleshooting does not mention %q", w)
+		}
+	}
+	// Recovery never asks the user to delete keys with ghs or log out.
+	for _, unwanted := range []string{"gh auth logout --hostname github.com --user"} {
+		if strings.Contains(readmeSection(t, "### Symptoms and fixes"), unwanted) {
+			t.Errorf("README Symptoms and fixes must not instruct %q", unwanted)
+		}
 	}
 }

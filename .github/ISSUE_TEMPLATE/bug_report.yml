@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in ghs does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check the README troubleshooting section and existing issues first.
+
+        **Do not paste private keys, tokens, or full config files.** Redact logins, emails, and paths if you prefer.
+        Security problems go through SECURITY.md, not a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: ghs version
+      description: Output of `ghs version`.
+      placeholder: ghs v0.5.0
+    validations:
+      required: true
+  - type: textarea
+    id: platform
+    attributes:
+      label: Platform and tools
+      description: OS and architecture, and the output of `gh --version` and `git --version`.
+      placeholder: |
+        Linux amd64 (Ubuntu 24.04)
+        gh version 2.x.y
+        git version 2.x.y
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      description: The exact `ghs` command line, and anything you did right before it.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: The full output (stdout and stderr) and the exit code (`echo $?`, or `$LASTEXITCODE` in PowerShell).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: ghs doctor --offline output
+      description: Output of `ghs doctor --offline` (or `ghs doctor <profile> --offline`) in the same directory.
+      render: text
+    validations:
+      required: true
