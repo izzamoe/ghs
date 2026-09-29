@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -125,5 +126,70 @@ func TestHelpListsEveryRegisteredCommand(t *testing.T) {
 				t.Fatalf("%s --help does not list --%s", spec.Name, f.Name)
 			}
 		}
+	}
+}
+
+func TestHelpCommandAliasMatchesFlag(t *testing.T) {
+	t.Parallel()
+	for _, spec := range commands {
+		var viaHelp, viaFlag, errOut bytes.Buffer
+		if err := New(&viaHelp, &errOut).Run([]string{"help", spec.Name}); err != nil {
+			t.Fatalf("help %s: %v", spec.Name, err)
+		}
+		if err := New(&viaFlag, &errOut).Run([]string{spec.Name, "--help"}); err != nil {
+			t.Fatalf("%s --help: %v", spec.Name, err)
+		}
+		if viaHelp.String() != viaFlag.String() {
+			t.Fatalf("ghs help %s differs from ghs %s --help:\n%s\n---\n%s", spec.Name, spec.Name, viaHelp.String(), viaFlag.String())
+		}
+		if errOut.Len() != 0 {
+			t.Fatalf("help %s wrote to stderr: %q", spec.Name, errOut.String())
+		}
+	}
+	// "help help", "help --help", and "help -h" ask for the general help.
+	general := helpOutput(t)
+	for _, topic := range []string{"help", "--help", "-h"} {
+		var out, errOut bytes.Buffer
+		if err := New(&out, &errOut).Run([]string{"help", topic}); err != nil || out.String() != general {
+			t.Fatalf("help %s = %q, %v; want the general help", topic, out.String(), err)
+		}
+	}
+}
+
+func TestHelpUnknownTopicIsUsageError(t *testing.T) {
+	t.Parallel()
+	var out, errOut bytes.Buffer
+	err := New(&out, &errOut).Run([]string{"help", "nosuch"})
+	var usageErr *UsageError
+	if !errors.As(err, &usageErr) || !strings.Contains(usageErr.Message, `unknown command "nosuch"`) {
+		t.Fatalf("help nosuch = %v, want the unknown-command usage error", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("help nosuch wrote to stdout: %q", out.String())
+	}
+}
+
+func TestHelpSurplusArgumentIsUsageError(t *testing.T) {
+	t.Parallel()
+	var out, errOut bytes.Buffer
+	err := New(&out, &errOut).Run([]string{"help", "use", "--global"})
+	var usageErr *UsageError
+	if !errors.As(err, &usageErr) || !strings.Contains(usageErr.Message, `unexpected argument "--global"`) {
+		t.Fatalf("help use --global = %v, want a usage error", err)
+	}
+	if usageErr.Usage != generalUsage() {
+		t.Fatalf("usage block = %q, want the general usage", usageErr.Usage)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("help use --global wrote to stdout: %q", out.String())
+	}
+}
+
+const docsURL = "https://github.com/izzamoe/ghs#readme"
+
+func TestHelpFooterHasDocsLine(t *testing.T) {
+	t.Parallel()
+	if help := helpOutput(t); !strings.HasSuffix(help, "Exit codes: 0 success, 1 failure, 2 usage error.\nDocs: "+docsURL+"\n") {
+		t.Fatalf("help does not end with the Docs line:\n%s", help)
 	}
 }
