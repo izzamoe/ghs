@@ -9,6 +9,39 @@ changes; they are marked **Breaking:** below.
 
 ## [Unreleased]
 
+### Added
+
+- `ghs help <command>` prints that command's usage and flags, exactly like
+  `ghs <command> --help`; `ghs help <unknown>` is the unknown-command usage
+  error (exit code `2`) instead of silently printing the general help.
+- `ghs --help` ends with a `Docs:` line pointing at the README.
+- `CONTRIBUTING.md` (gates, hermetic test suite, Spec Kit workflow, maintainer
+  release and repository-settings runbook), `SECURITY.md` (private reporting
+  through GitHub, no email, no bug bounty), `SUPPORT.md`,
+  `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), bug and feature issue
+  forms, a pull request template, Dependabot updates for GitHub Actions, and
+  the source of the repository social preview image.
+
+### Changed
+
+- The README is restructured for new users: the two install paths (Go
+  toolchain, or a release archive with checksum verification on Linux,
+  macOS, and Windows) and an explicit statement that no package-manager
+  distribution exists; updating and uninstalling; a first-run walk-through;
+  a command reference identical to `ghs <command> --help`; troubleshooting
+  with the manual undo of every change `ghs` makes; what `ghs` stores, reads,
+  and sends; and Linux, macOS, and Windows notes. Examples use placeholder
+  identities.
+- Tests now fail when the README, `CONTRIBUTING.md`, the community files, or
+  the changelog drift from the help text, `go.mod`, `.goreleaser.yaml`, the
+  `Makefile`, the CI workflow, or each other, or when a documentation link
+  targets a missing file or an unlisted host.
+
+### Fixed
+
+- The changelog link references for `0.5.0` and `0.5.1` were missing, and
+  `[Unreleased]` compared from `v0.4.0`.
+
 ## [0.5.1] - 2026-09-28
 
 ### Fixed
